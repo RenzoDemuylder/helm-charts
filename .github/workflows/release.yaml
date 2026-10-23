@@ -1,0 +1,41 @@
+name: Release charts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "charts/**"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+      - name: Package and push charts
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          owner=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
+          mkdir -p .packages
+          for chart in charts/*/; do
+            name=$(basename "$chart")
+            version=$(helm show chart "$chart" | awk '/^version:/ {print $2}')
+            # Skip versions already published (immutable releases)
+            if helm show chart "oci://ghcr.io/${owner}/charts/${name}" --version "$version" >/dev/null 2>&1; then
+              echo "${name}-${version} already published, skipping"
+              continue
+            fi
+            helm dependency build "$chart"
+            helm package "$chart" --destination .packages
+            helm push ".packages/${name}-${version}.tgz" "oci://ghcr.io/${owner}/charts"
+          done

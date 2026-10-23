@@ -1,0 +1,57 @@
+name: Lint and test charts
+
+on:
+  pull_request:
+    paths:
+      - "charts/**"
+      - "ct.yaml"
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: azure/setup-helm@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: helm/chart-testing-action@v2.7.0
+
+      - name: List changed charts
+        id: list-changed
+        run: |
+          changed=$(ct list-changed --config ct.yaml)
+          if [[ -n "$changed" ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Lint common library chart
+        run: helm lint --strict charts/common
+
+      - name: Lint charts
+        if: steps.list-changed.outputs.changed == 'true'
+        run: ct lint --config ct.yaml
+
+      - name: Check generated README is up to date
+        run: |
+          for c in charts/*/; do
+            [ -f "$c/README.md" ] || continue
+            npx --yes @bitnami/readme-generator-for-helm@2.7.2 --values "$c/values.yaml" --readme "$c/README.md"
+          done
+          git diff --exit-code -- 'charts/*/README.md'
+
+      - uses: helm/kind-action@v1
+        if: steps.list-changed.outputs.changed == 'true'
+
+      - name: Install charts
+        if: steps.list-changed.outputs.changed == 'true'
+        run: ct install --config ct.yaml
