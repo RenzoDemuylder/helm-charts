@@ -1,0 +1,25 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+# Test cluster that behaves like a hardened production cluster:
+#   - PodSecurity admission enforces the `restricted` profile in every non-exempt namespace (psa-config.yaml)
+#   - kindnet enforces NetworkPolicy, so the policies shipped by the charts really filter traffic
+# Paths are relative to the repository root: always run kind from there (the Makefile does).
+nodes:
+  - role: control-plane
+    extraMounts:
+      - hostPath: test/kind/psa-config.yaml
+        containerPath: /etc/kubernetes/policies/psa-config.yaml
+        readOnly: true
+    kubeadmConfigPatches:
+      - |
+        kind: ClusterConfiguration
+        apiServer:
+          extraArgs:
+            - name: admission-control-config-file
+              value: /etc/kubernetes/policies/psa-config.yaml
+          extraVolumes:
+            - name: policies
+              hostPath: /etc/kubernetes/policies
+              mountPath: /etc/kubernetes/policies
+              readOnly: true
+              pathType: DirectoryOrCreate

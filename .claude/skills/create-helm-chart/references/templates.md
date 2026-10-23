@@ -46,6 +46,15 @@ Sub-components (database) go in `templates/<component>/`. Copy from `charts/scro
 - **Databases in chart**: use the official upstream image, StatefulSet with `volumeClaimTemplates`, `PGDATA` in a
   subdirectory of the mount, non-root UID of the image (postgres alpine = 70), read-only root FS with emptyDir for
   `/tmp` and the socket dir, `pg_isready` exec probes, `wait-for-db` init container in the app pod.
+- **Helm test hooks** (`templates/tests/*.yaml`): `Pod` with `helm.sh/hook: test` and
+  `hook-delete-policy: before-hook-creation,hook-succeeded`, label `app.kubernetes.io/component: test` (so no selector
+  matches it), `automountServiceAccountToken: false`, `nano` resources preset, the `<fullname>-client: "true"` label on
+  pods that must reach the app through a strict NetworkPolicy. The health test goes through the Service DNS name, not
+  the pod IP or loopback. Gate optional checks on the values that make them meaningful (see scrob `networkpolicy-deny.yaml`).
+- **ci values** (`ci/<case>-values.yaml`, file name = case name): small `resourcesPreset`s so runners cope; one file per
+  permutation of the database mode and exposure options. Each case installs into its own namespace, so throwaway
+  dependencies deployed with `extraDeploy` can use fixed names. Chart values are not templated by default, so
+  `externalDatabase.host` cannot contain `{{ .Release.Name }}`.
 - **NOTES.txt**: how to reach the app (ingress / NodePort / LoadBalancer / port-forward), first-run hints, warnings
   for risky settings, then the `common.warnings.*` includes at the end.
 
@@ -54,6 +63,13 @@ Sub-components (database) go in `templates/<component>/`. Copy from `charts/scro
 - `.helmignore` must not contain `*.tgz` (breaks `file://` dependencies).
 - Never change selector labels after release (immutable); bump the chart major if unavoidable.
 - `lookup` returns nothing under `helm template`; generated secrets differ per render, so never assert on them in tests.
+- helm-unittest only renders the templates listed in the suite's `templates:`. A template that `include`s another one
+  (the deployment's `checksum/secret` includes `secret.yaml`) needs that file listed too, plus `template:` on each test
+  so assertions hit the intended document.
+- Busybox `nslookup` ignores the pod's search domains: use the fully qualified `<svc>.<ns>.svc.<clusterDomain>` in test
+  scripts. Alpine/busybox images have `wget`, `nc -z -w` and `nslookup`; do not assume `curl`.
+- A test that must fail when a feature breaks needs a control: temporarily add an allow-all NetworkPolicy (policies are
+  additive) or similar and check the test goes red. Disabling the feature may simply un-render the test.
 - Quote everything that can be numeric/boolean in env (`| quote`), Kubernetes env values must be strings.
 - With `Recreate` + RWO PVC do not use `RollingUpdate` (the new pod cannot mount the volume).
 - `fsGroup` handles volume ownership; do not add a root `volumePermissions` init container unless the storage backend ignores fsGroup.

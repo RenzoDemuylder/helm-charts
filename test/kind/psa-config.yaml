@@ -1,0 +1,23 @@
+apiVersion: apiserver.config.k8s.io/v1
+kind: AdmissionConfiguration
+plugins:
+  - name: PodSecurity
+    configuration:
+      apiVersion: pod-security.admission.config.k8s.io/v1
+      kind: PodSecurityConfiguration
+      # Every namespace a chart is installed into must satisfy the restricted profile, so a chart whose
+      # security contexts only look right when rendered is rejected by the API server here.
+      defaults:
+        enforce: restricted
+        enforce-version: latest
+        audit: restricted
+        audit-version: latest
+        warn: restricted
+        warn-version: latest
+      exemptions:
+        usernames: []
+        runtimeClasses: []
+        namespaces:
+          - kube-system
+          - local-path-storage
+          - cnpg-system

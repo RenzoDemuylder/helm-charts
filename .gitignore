@@ -3,3 +3,4 @@ charts/*/charts/*.tgz
 .DS_Store
 .idea/
 .vscode/
+.render/
