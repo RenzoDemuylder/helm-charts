@@ -1,0 +1,5 @@
+charts/*/charts/*.tgz
+*.tgz
+.DS_Store
+.idea/
+.vscode/
