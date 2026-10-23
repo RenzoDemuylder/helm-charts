@@ -19,10 +19,6 @@ keywords:
   - scrob
   - media
   - tracker
-  - jellyfin
-  - plex
-  - emby
-  - trakt
 kubeVersion: ">=1.25.0-0"
 maintainers:
   - name: RenzoDemuylder
@@ -31,4 +27,4 @@ name: scrob
 sources:
   - https://github.com/ellite/scrob
   - https://github.com/RenzoDemuylder/helm-charts/tree/main/charts/scrob
-version: 0.1.0
+version: 0.1.1

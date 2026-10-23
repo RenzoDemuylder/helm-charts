@@ -652,6 +652,16 @@ serviceAccount:
   ##
   automountServiceAccountToken: false
 
+## Helm test hooks, run with `helm test <release>`
+## ref: https://helm.sh/docs/topics/chart_tests/
+## @param tests.enabled Render the `helm test` hooks (checks that Scrob answers through its Service)
+## @param tests.networkPolicy.enabled Also check that the PostgreSQL NetworkPolicy blocks pods that are not Scrob (needs a CNI that enforces NetworkPolicy and `postgresql.networkPolicy.enabled`)
+##
+tests:
+  enabled: true
+  networkPolicy:
+    enabled: false
+
 ## @section Database parameters
 ##
 

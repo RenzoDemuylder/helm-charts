@@ -305,12 +305,14 @@ Scrob keeps avatars and image cache on a local volume, runs in-process scheduler
 
 ### Other Parameters
 
-| Name                                          | Description                                                      | Value   |
-| --------------------------------------------- | ---------------------------------------------------------------- | ------- |
-| `serviceAccount.create`                       | Specifies whether a ServiceAccount should be created             | `true`  |
-| `serviceAccount.name`                         | The name of the ServiceAccount to use.                           | `""`    |
-| `serviceAccount.annotations`                  | Additional Service Account annotations (evaluated as a template) | `{}`    |
-| `serviceAccount.automountServiceAccountToken` | Automount service account token for the server service account   | `false` |
+| Name                                          | Description                                                                                                                                                  | Value   |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| `serviceAccount.create`                       | Specifies whether a ServiceAccount should be created                                                                                                         | `true`  |
+| `serviceAccount.name`                         | The name of the ServiceAccount to use.                                                                                                                       | `""`    |
+| `serviceAccount.annotations`                  | Additional Service Account annotations (evaluated as a template)                                                                                             | `{}`    |
+| `serviceAccount.automountServiceAccountToken` | Automount service account token for the server service account                                                                                               | `false` |
+| `tests.enabled`                               | Render the `helm test` hooks (checks that Scrob answers through its Service)                                                                                 | `true`  |
+| `tests.networkPolicy.enabled`                 | Also check that the PostgreSQL NetworkPolicy blocks pods that are not Scrob (needs a CNI that enforces NetworkPolicy and `postgresql.networkPolicy.enabled`) | `false` |
 
 ### Database parameters
 

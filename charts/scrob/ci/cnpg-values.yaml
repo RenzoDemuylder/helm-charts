@@ -1,0 +1,10 @@
+# CloudNativePG cluster instead of the bundled PostgreSQL (operator installed by test/kind/setup.sh)
+resourcesPreset: small
+postgresql:
+  enabled: false
+cnpg:
+  enabled: true
+  instances: 1
+  storage:
+    size: 1Gi
+  resourcesPreset: micro

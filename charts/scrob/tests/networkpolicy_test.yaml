@@ -1,0 +1,69 @@
+suite: network policies
+templates:
+  - templates/networkpolicy.yaml
+  - templates/postgresql/networkpolicy.yaml
+release:
+  name: t
+tests:
+  - it: renders both policies by default
+    asserts:
+      - isKind:
+          of: NetworkPolicy
+      - hasDocuments:
+          count: 1
+
+  - it: only lets Scrob pods reach the bundled PostgreSQL
+    template: templates/postgresql/networkpolicy.yaml
+    asserts:
+      - equal:
+          path: spec.ingress[0].from[0].podSelector.matchLabels
+          value:
+            app.kubernetes.io/name: scrob
+            app.kubernetes.io/instance: t
+            app.kubernetes.io/component: scrob
+      - equal:
+          path: spec.ingress[0].ports[0].port
+          value: 5432
+
+  - it: limits egress to DNS and the database in strict mode
+    template: templates/networkpolicy.yaml
+    set:
+      networkPolicy.allowExternal: false
+      networkPolicy.allowExternalEgress: false
+    asserts:
+      - lengthEqual:
+          path: spec.egress
+          count: 2
+      - equal:
+          path: spec.egress[1].to[0].podSelector.matchLabels["app.kubernetes.io/component"]
+          value: postgresql
+      - equal:
+          path: spec.ingress[0].from[0].podSelector.matchLabels["t-scrob-client"]
+          value: "true"
+
+  - it: targets the CloudNativePG pods in strict mode
+    template: templates/networkpolicy.yaml
+    set:
+      postgresql.enabled: false
+      cnpg.enabled: true
+      networkPolicy.allowExternalEgress: false
+    asserts:
+      - equal:
+          path: spec.egress[1].to[0].podSelector.matchLabels["cnpg.io/cluster"]
+          value: t-scrob-db
+
+  - it: allows all egress when asked to
+    template: templates/networkpolicy.yaml
+    asserts:
+      - equal:
+          path: spec.egress
+          value:
+            - {}
+
+  - it: renders nothing when disabled
+    set:
+      networkPolicy.enabled: false
+      postgresql.networkPolicy.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

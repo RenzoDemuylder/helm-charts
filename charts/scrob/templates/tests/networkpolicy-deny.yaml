@@ -1,0 +1,42 @@
+{{- if and .Values.tests.enabled .Values.tests.networkPolicy.enabled .Values.postgresql.enabled .Values.postgresql.networkPolicy.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ printf "%s-test-netpol" (include "common.names.fullname" .) | trunc 63 | trimSuffix "-" }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "common.labels.standard" (dict "customLabels" .Values.commonLabels "context" $) | nindent 4 }}
+    app.kubernetes.io/component: test
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" (dict "value" .Values.commonAnnotations "context" $) | nindent 4 }}
+    {{- end }}
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  {{- include "scrob.imagePullSecrets" . | nindent 2 }}
+  securityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: netpol-deny
+      image: {{ include "scrob.postgresql.image" . }}
+      imagePullPolicy: {{ .Values.postgresql.image.pullPolicy }}
+      securityContext: {{- include "scrob.tests.securityContext" . | nindent 8 }}
+      command:
+        - sh
+        - -c
+        - |
+          # fully qualified: busybox nslookup does not apply the pod's search domains
+          host="{{ include "scrob.postgresql.fullname" . }}.{{ include "common.names.namespace" . }}.svc.{{ .Values.clusterDomain }}"
+          port="{{ .Values.postgresql.service.ports.postgresql }}"
+          # without a working DNS lookup a failing connection would prove nothing
+          nslookup "$host" >/dev/null || { echo "cannot resolve $host" >&2; exit 1; }
+          if nc -z -w 5 "$host" "$port"; then
+            echo "reached $host:$port from a pod that is not Scrob: the NetworkPolicy is not enforced" >&2
+            exit 1
+          fi
+          echo "connection to $host:$port is blocked as expected"
+      resources: {{- include "common.resources.preset" (dict "type" "nano") | nindent 8 }}
+{{- end }}

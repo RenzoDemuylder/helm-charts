@@ -1,0 +1,12 @@
+# Strictest network posture: only labelled clients may reach Scrob, egress limited to DNS + the database.
+# Proves the NetworkPolicy rules shipped by the chart are sufficient for the app to start and serve.
+resourcesPreset: small
+postgresql:
+  resourcesPreset: micro
+networkPolicy:
+  enabled: true
+  allowExternal: false
+  allowExternalEgress: false
+tests:
+  networkPolicy:
+    enabled: true

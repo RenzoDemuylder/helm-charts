@@ -1,0 +1,10 @@
+# Ingress enabled (no controller needed: the API server only has to accept the object)
+resourcesPreset: small
+postgresql:
+  resourcesPreset: micro
+ingress:
+  enabled: true
+  hostname: scrob.example.test
+  ingressClassName: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 8m
