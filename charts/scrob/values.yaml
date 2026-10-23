@@ -1,0 +1,919 @@
+## @section Global parameters
+## Global Docker image parameters
+## Please, note that this will override the image parameters, including dependencies, configured to use the global value
+## Current available global Docker image parameters: imageRegistry, imagePullSecrets and defaultStorageClass
+##
+
+## @param global.imageRegistry Global Docker image registry
+## @param global.imagePullSecrets Global Docker registry secret names as an array
+## @param global.defaultStorageClass Global default StorageClass for Persistent Volume(s)
+## @param global.storageClass DEPRECATED: use global.defaultStorageClass instead
+##
+global:
+  imageRegistry: ""
+  ## E.g.
+  ## imagePullSecrets:
+  ##   - myRegistryKeySecretName
+  ##
+  imagePullSecrets: []
+  defaultStorageClass: ""
+  storageClass: ""
+  ## Compatibility adaptations for Kubernetes platforms
+  ##
+  compatibility:
+    ## Compatibility adaptations for Openshift
+    ##
+    openshift:
+      ## @param global.compatibility.openshift.adaptSecurityContext Adapt the securityContext sections of the deployment to make them compatible with Openshift restricted-v2 SCC: remove runAsUser, runAsGroup and fsGroup and let the platform use their allowed default IDs. Possible values: auto (apply if the detected running cluster is Openshift), force (perform the adaptation always), disabled (do not perform adaptation)
+      ##
+      adaptSecurityContext: auto
+
+## @section Common parameters
+##
+
+## @param nameOverride String to partially override common.names.name
+##
+nameOverride: ""
+## @param fullnameOverride String to fully override common.names.fullname
+##
+fullnameOverride: ""
+## @param namespaceOverride String to fully override common.names.namespace
+##
+namespaceOverride: ""
+## @param commonLabels Labels to add to all deployed objects
+##
+commonLabels: {}
+## @param commonAnnotations Annotations to add to all deployed objects
+##
+commonAnnotations: {}
+## @param clusterDomain Kubernetes cluster domain name
+##
+clusterDomain: cluster.local
+## @param extraDeploy Array of extra objects to deploy with the release
+##
+extraDeploy: []
+## Enable diagnostic mode in the deployment
+##
+diagnosticMode:
+  ## @param diagnosticMode.enabled Enable diagnostic mode (all probes will be disabled and the command will be overridden)
+  ##
+  enabled: false
+  ## @param diagnosticMode.command Command to override all containers in the deployment
+  ##
+  command:
+    - sleep
+  ## @param diagnosticMode.args Args to override all containers in the deployment
+  ##
+  args:
+    - infinity
+
+## @section Scrob parameters
+##
+
+## Scrob image
+## ref: https://hub.docker.com/r/bellamy/scrob/tags
+## @param image.registry [default: REGISTRY_NAME] Scrob image registry
+## @param image.repository [default: REPOSITORY_NAME/scrob] Scrob image repository
+## @skip image.tag Scrob image tag (immutable tags are recommended)
+## @param image.digest Scrob image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
+## @param image.pullPolicy Scrob image pull policy
+## @param image.pullSecrets Scrob image pull secrets
+##
+image:
+  registry: docker.io
+  repository: bellamy/scrob
+  tag: 2.33.0
+  digest: ""
+  ## Specify a imagePullPolicy
+  ## ref: https://kubernetes.io/docs/concepts/containers/images/#pre-pulled-images
+  ##
+  pullPolicy: IfNotPresent
+  ## Optionally specify an array of imagePullSecrets.
+  ## Secrets must be manually created in the namespace.
+  ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+  ## e.g:
+  ## pullSecrets:
+  ##   - myRegistryKeySecretName
+  ##
+  pullSecrets: []
+## @param secretKey Secret key used to sign sessions. Generated randomly (64 chars) and preserved across upgrades if empty
+##
+secretKey: ""
+## @param existingSecret Name of an existing Secret containing the Scrob credentials (see keys below)
+## Expected keys: `secret-key` and, when the matching feature is used, `oidc-client-secret`, `trakt-client-secret`, `smtp-password`, `database-password` (only with externalDatabase and no externalDatabase.existingSecret)
+##
+existingSecret: ""
+## @param serverUrl Public URL Scrob is reachable at (SERVER_URL). Defaults to the first ingress host, when enabled
+##
+serverUrl: ""
+## @param timezone Timezone of the container (TZ)
+##
+timezone: UTC
+## Registration settings
+## @param registration.enabled Allow new users to register (ENABLE_REGISTRATIONS)
+## @param registration.maxUsers Maximum number of registered users, 0 means unlimited (REGISTRATION_MAX_ALLOWED_USERS)
+##
+registration:
+  enabled: false
+  maxUsers: 0
+## @param sessionRememberDays Number of days "remember me" sessions last (SESSION_REMEMBER_DAYS)
+##
+sessionRememberDays: 30
+## OpenID Connect settings
+## ref: https://github.com/ellite/scrob/blob/main/docker-compose.yaml
+## @param oidc.enabled Enable OIDC login (OIDC_ENABLED)
+## @param oidc.providerName Display name of the OIDC provider
+## @param oidc.clientId OIDC client ID
+## @param oidc.clientSecret OIDC client secret (stored in the Secret, key `oidc-client-secret`)
+## @param oidc.discoveryUrl OIDC discovery URL (.well-known/openid-configuration)
+## @param oidc.authUrl OIDC authorization endpoint (not needed when discoveryUrl is set)
+## @param oidc.tokenUrl OIDC token endpoint (not needed when discoveryUrl is set)
+## @param oidc.userinfoUrl OIDC userinfo endpoint (not needed when discoveryUrl is set)
+## @param oidc.issuer OIDC issuer
+## @param oidc.jwksUrl OIDC JWKS URL
+## @param oidc.logoutUrl OIDC end-session endpoint
+## @param oidc.postLogoutRedirectUrl URL to redirect to after logout
+## @param oidc.redirectUrl OIDC redirect URL. Defaults to <serverUrl>/oidc-callback
+## @param oidc.identifierField Claim used to match users
+## @param oidc.scopes OIDC scopes
+## @param oidc.autoCreateUsers Create users on first OIDC login
+## @param oidc.disablePasswordLogin Disable password login when OIDC is enabled
+## @param oidc.pkce Use PKCE
+##
+oidc:
+  enabled: false
+  providerName: SSO
+  clientId: ""
+  clientSecret: ""
+  discoveryUrl: ""
+  authUrl: ""
+  tokenUrl: ""
+  userinfoUrl: ""
+  issuer: ""
+  jwksUrl: ""
+  logoutUrl: ""
+  postLogoutRedirectUrl: ""
+  redirectUrl: ""
+  identifierField: email
+  scopes: openid email profile
+  autoCreateUsers: true
+  disablePasswordLogin: false
+  pkce: true
+## Trakt integration
+## @param trakt.clientId Trakt application client ID
+## @param trakt.clientSecret Trakt application client secret (stored in the Secret, key `trakt-client-secret`)
+##
+trakt:
+  clientId: ""
+  clientSecret: ""
+## SMTP settings (used for password reset and email validation)
+## @param smtp.requireEmailValidation Require users to validate their email address
+## @param smtp.host SMTP server host (SMTP_ADDRESS)
+## @param smtp.port SMTP server port
+## @param smtp.encryption SMTP encryption (tls, ssl, none)
+## @param smtp.username SMTP username
+## @param smtp.password SMTP password (stored in the Secret, key `smtp-password`)
+## @param smtp.fromEmail Sender email address
+##
+smtp:
+  requireEmailValidation: false
+  host: ""
+  port: 587
+  encryption: tls
+  username: ""
+  password: ""
+  fromEmail: ""
+## @param backendPort Internal backend port (BACKEND_PORT). The backend only listens on 127.0.0.1 inside the pod
+##
+backendPort: 7331
+## @param command Override default container command (useful when using custom images)
+## The upstream entrypoint starts as root and drops privileges. This chart skips it so the container can run as non-root:
+## it runs the database migrations and then starts supervisord (frontend and backend).
+##
+command:
+  - sh
+  - -c
+## @param args Override default container args (useful when using custom images)
+##
+args:
+  - cd /app/backend && .venv/bin/python -m alembic upgrade head && exec /usr/local/bin/supervisord -n -c /etc/supervisor/supervisord.conf
+## @param extraEnvVars Array with extra environment variables to add to the Scrob container
+## e.g:
+## extraEnvVars:
+##   - name: FOO
+##     value: "bar"
+##
+extraEnvVars: []
+## @param extraEnvVarsCM Name of existing ConfigMap containing extra env vars
+##
+extraEnvVarsCM: ""
+## @param extraEnvVarsSecret Name of existing Secret containing extra env vars
+##
+extraEnvVarsSecret: ""
+## @param replicaCount Number of Scrob replicas to deploy. Scrob keeps state on a local volume and runs in-process schedulers: do not scale above 1
+##
+replicaCount: 1
+## @param containerPorts.http Scrob HTTP (frontend) container port
+##
+containerPorts:
+  http: 7330
+## Configure extra options for Scrob containers' liveness, readiness and startup probes
+## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#configure-probes
+## The probes run the same check as the image HEALTHCHECK: the backend /health endpoint only listens on 127.0.0.1, so an exec probe is required.
+## @param livenessProbe.enabled Enable livenessProbe on Scrob containers
+## @param livenessProbe.initialDelaySeconds Initial delay seconds for livenessProbe
+## @param livenessProbe.periodSeconds Period seconds for livenessProbe
+## @param livenessProbe.timeoutSeconds Timeout seconds for livenessProbe
+## @param livenessProbe.failureThreshold Failure threshold for livenessProbe
+## @param livenessProbe.successThreshold Success threshold for livenessProbe
+##
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
+## @param readinessProbe.enabled Enable readinessProbe on Scrob containers
+## @param readinessProbe.initialDelaySeconds Initial delay seconds for readinessProbe
+## @param readinessProbe.periodSeconds Period seconds for readinessProbe
+## @param readinessProbe.timeoutSeconds Timeout seconds for readinessProbe
+## @param readinessProbe.failureThreshold Failure threshold for readinessProbe
+## @param readinessProbe.successThreshold Success threshold for readinessProbe
+##
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
+## @param startupProbe.enabled Enable startupProbe on Scrob containers (waits for migrations to complete)
+## @param startupProbe.initialDelaySeconds Initial delay seconds for startupProbe
+## @param startupProbe.periodSeconds Period seconds for startupProbe
+## @param startupProbe.timeoutSeconds Timeout seconds for startupProbe
+## @param startupProbe.failureThreshold Failure threshold for startupProbe
+## @param startupProbe.successThreshold Success threshold for startupProbe
+##
+startupProbe:
+  enabled: true
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 60
+  successThreshold: 1
+## @param customLivenessProbe Custom livenessProbe that overrides the default one
+##
+customLivenessProbe: {}
+## @param customReadinessProbe Custom readinessProbe that overrides the default one
+##
+customReadinessProbe: {}
+## @param customStartupProbe Custom startupProbe that overrides the default one
+##
+customStartupProbe: {}
+## Scrob resource requests and limits
+## ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+## @param resourcesPreset Set container resources according to one common preset (allowed values: none, nano, micro, small, medium, large, xlarge). This is ignored if resources is set (resources is recommended for production).
+## Sizes are defined in charts/common/templates/_resources.tpl
+##
+resourcesPreset: medium
+## @param resources Set container requests and limits for different resources like CPU or memory (essential for production workloads)
+## Example:
+## resources:
+##   requests:
+##     cpu: 2
+##     memory: 512Mi
+##   limits:
+##     cpu: 3
+##     memory: 1024Mi
+##
+resources: {}
+## Configure Pods Security Context
+## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+## @param podSecurityContext.enabled Enabled Scrob pods' Security Context
+## @param podSecurityContext.fsGroupChangePolicy Set filesystem group change policy
+## @param podSecurityContext.sysctls Set kernel settings using the sysctl interface
+## @param podSecurityContext.supplementalGroups Set filesystem extra groups
+## @param podSecurityContext.fsGroup Set Scrob pod's Security Context fsGroup
+##
+podSecurityContext:
+  enabled: true
+  fsGroupChangePolicy: Always
+  sysctls: []
+  supplementalGroups: []
+  fsGroup: 1000
+## Configure Container Security Context
+## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+## @param containerSecurityContext.enabled Enabled Scrob containers' Security Context
+## @param containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in container
+## @param containerSecurityContext.runAsUser Set Scrob containers' Security Context runAsUser
+## @param containerSecurityContext.runAsGroup Set Scrob containers' Security Context runAsGroup
+## @param containerSecurityContext.runAsNonRoot Set Scrob containers' Security Context runAsNonRoot
+## @param containerSecurityContext.privileged Set container's Security Context privileged
+## @param containerSecurityContext.readOnlyRootFilesystem Set container's Security Context readOnlyRootFilesystem
+## @param containerSecurityContext.allowPrivilegeEscalation Set container's Security Context allowPrivilegeEscalation
+## @param containerSecurityContext.capabilities.drop List of capabilities to be dropped
+## @param containerSecurityContext.seccompProfile.type Set container's Security Context seccomp profile
+##
+containerSecurityContext:
+  enabled: true
+  seLinuxOptions: {}
+  runAsUser: 1000
+  runAsGroup: 1000
+  runAsNonRoot: true
+  privileged: false
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+  seccompProfile:
+    type: "RuntimeDefault"
+## @param automountServiceAccountToken Mount Service Account token in Scrob pods
+##
+automountServiceAccountToken: false
+## @param hostAliases Scrob pods host aliases
+## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+##
+hostAliases: []
+## @param podLabels Extra labels for Scrob pods
+## Ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+##
+podLabels: {}
+## @param podAnnotations Annotations for Scrob pods
+## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+##
+podAnnotations: {}
+## @param podAffinityPreset Pod affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
+##
+podAffinityPreset: ""
+## @param podAntiAffinityPreset Pod anti-affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+## Ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
+##
+podAntiAffinityPreset: soft
+## Node affinity preset
+## Ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
+##
+nodeAffinityPreset:
+  ## @param nodeAffinityPreset.type Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+  ##
+  type: ""
+  ## @param nodeAffinityPreset.key Node label key to match. Ignored if `affinity` is set
+  ## E.g.
+  ## key: "kubernetes.io/e2e-az-name"
+  ##
+  key: ""
+  ## @param nodeAffinityPreset.values Node label values to match. Ignored if `affinity` is set
+  ## E.g.
+  ## values:
+  ##   - e2e-az1
+  ##   - e2e-az2
+  ##
+  values: []
+## @param affinity Affinity for Scrob pods assignment
+## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+## NOTE: `podAffinityPreset`, `podAntiAffinityPreset`, and `nodeAffinityPreset` will be ignored when it's set
+##
+affinity: {}
+## @param nodeSelector Node labels for Scrob pods assignment
+## ref: https://kubernetes.io/docs/user-guide/node-selection/
+##
+nodeSelector: {}
+## @param tolerations Tolerations for Scrob pods assignment
+## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+##
+tolerations: []
+## @param topologySpreadConstraints Topology Spread Constraints for pod assignment spread across your cluster among failure-domains
+## Ref: https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/#spread-constraints-for-pods
+##
+topologySpreadConstraints: []
+## @param schedulerName Alternative scheduler
+## ref: https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers/
+##
+schedulerName: ""
+## @param priorityClassName Scrob pods' priorityClassName
+##
+priorityClassName: ""
+## @param terminationGracePeriodSeconds Seconds Scrob pod needs to terminate gracefully
+## ref: https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods
+##
+terminationGracePeriodSeconds: ""
+## @param lifecycleHooks for the Scrob container(s) to automate configuration before or after startup
+##
+lifecycleHooks: {}
+## @param updateStrategy.type Scrob deployment strategy type. Recreate is required as the data volume is ReadWriteOnce
+## ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
+##
+updateStrategy:
+  type: Recreate
+## @param extraVolumes Optionally specify extra list of additional volumes for the Scrob pod(s)
+##
+extraVolumes: []
+## @param extraVolumeMounts Optionally specify extra list of additional volumeMounts for the Scrob container(s)
+##
+extraVolumeMounts: []
+## @param sidecars Add additional sidecar containers to the Scrob pod(s)
+## e.g:
+## sidecars:
+##   - name: your-image-name
+##     image: your-image
+##     imagePullPolicy: Always
+##     ports:
+##       - name: portname
+##         containerPort: 1234
+##
+sidecars: []
+## @param initContainers Add additional init containers to the Scrob pod(s)
+## ref: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
+##
+initContainers: []
+## Pod Disruption Budget configuration
+## ref: https://kubernetes.io/docs/tasks/run-application/configure-pdb
+## @param pdb.create Enable a Pod Disruption Budget creation
+## @param pdb.minAvailable Minimum number/percentage of pods that should remain scheduled
+## @param pdb.maxUnavailable Maximum number/percentage of pods that may be made unavailable. Defaults to `1` if both `pdb.minAvailable` and `pdb.maxUnavailable` are empty.
+##
+pdb:
+  create: true
+  minAvailable: ""
+  maxUnavailable: ""
+
+## @section Traffic Exposure Parameters
+##
+
+## Scrob Service parameters
+##
+service:
+  ## @param service.type Scrob service type
+  ##
+  type: ClusterIP
+  ## @param service.ports.http Scrob service HTTP port
+  ##
+  ports:
+    http: 80
+  ## Node ports to expose
+  ## @param service.nodePorts.http Node port for HTTP
+  ## NOTE: choose port between <30000-32767>
+  ##
+  nodePorts:
+    http: ""
+  ## @param service.clusterIP Scrob service Cluster IP
+  ## e.g.:
+  ## clusterIP: None
+  ##
+  clusterIP: ""
+  ## @param service.loadBalancerIP Scrob service Load Balancer IP
+  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#type-loadbalancer
+  ##
+  loadBalancerIP: ""
+  ## @param service.loadBalancerSourceRanges Scrob service Load Balancer sources
+  ## ref: https://kubernetes.io/docs/tasks/access-application-cluster/configure-cloud-provider-firewall/#restrict-access-for-loadbalancer-service
+  ##
+  loadBalancerSourceRanges: []
+  ## @param service.externalTrafficPolicy Scrob service external traffic policy
+  ## ref https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip
+  ##
+  externalTrafficPolicy: Cluster
+  ## @param service.annotations Additional custom annotations for Scrob service
+  ##
+  annotations: {}
+  ## @param service.extraPorts Extra ports to expose in the Scrob service (normally used with the `sidecars` value)
+  ##
+  extraPorts: []
+  ## @param service.sessionAffinity Control where client requests go, to the same pod or round-robin
+  ## Values: ClientIP or None
+  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/
+  ##
+  sessionAffinity: None
+  ## @param service.sessionAffinityConfig Additional settings for the sessionAffinity
+  ## sessionAffinityConfig:
+  ##   clientIP:
+  ##     timeoutSeconds: 300
+  ##
+  sessionAffinityConfig: {}
+## Scrob ingress parameters
+## ref: https://kubernetes.io/docs/concepts/services-networking/ingress/
+##
+ingress:
+  ## @param ingress.enabled Enable ingress record generation for Scrob
+  ##
+  enabled: false
+  ## @param ingress.pathType Ingress path type
+  ##
+  pathType: ImplementationSpecific
+  ## @param ingress.hostname Default host for the ingress record
+  ##
+  hostname: scrob.local
+  ## @param ingress.ingressClassName IngressClass that will be used to implement the Ingress 
+  ## This is supported in Kubernetes 1.18+ and required if you have more than one IngressClass marked as the default for your cluster.
+  ## ref: https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/
+  ##
+  ingressClassName: ""
+  ## @param ingress.path Default path for the ingress record
+  ##
+  path: /
+  ## @param ingress.annotations Additional annotations for the Ingress resource. To enable certificate autogeneration, place here your cert-manager annotations.
+  ## e.g:
+  ## annotations:
+  ##   cert-manager.io/cluster-issuer: letsencrypt
+  ##
+  annotations: {}
+  ## @param ingress.tls Enable TLS configuration for the host defined at `ingress.hostname` parameter
+  ## TLS certificates will be retrieved from a TLS secret with name: `{{- printf "%s-tls" .Values.ingress.hostname }}`
+  ##
+  tls: false
+  ## @param ingress.extraHosts The list of additional hostnames to be covered with this ingress record.
+  ## e.g:
+  ## extraHosts:
+  ##   - name: scrob.local
+  ##     path: /
+  ##
+  extraHosts: []
+  ## @param ingress.extraPaths Any additional arbitrary paths that may need to be added to the ingress under the main host.
+  ## e.g:
+  ## extraPaths:
+  ## - path: /*
+  ##   backend:
+  ##     serviceName: ssl-redirect
+  ##     servicePort: use-annotation
+  ##
+  extraPaths: []
+  ## @param ingress.extraTls The tls configuration for additional hostnames to be covered with this ingress record.
+  ## e.g:
+  ## extraTls:
+  ## - hosts:
+  ##     - scrob.local
+  ##   secretName: scrob.local-tls
+  ##
+  extraTls: []
+  ## @param ingress.secrets Custom TLS certificates as secrets
+  ## e.g:
+  ## secrets:
+  ##   - name: scrob.local-tls
+  ##     key: |-
+  ##       -----BEGIN RSA PRIVATE KEY-----
+  ##       ...
+  ##     certificate: |-
+  ##       -----BEGIN CERTIFICATE-----
+  ##       ...
+  ##
+  secrets: []
+  ## @param ingress.extraRules Additional rules to be covered with this ingress record
+  ## ref: https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-rules
+  ##
+  extraRules: []
+## Network Policy configuration
+## ref: https://kubernetes.io/docs/concepts/services-networking/network-policies/
+##
+networkPolicy:
+  ## @param networkPolicy.enabled Specifies whether a NetworkPolicy should be created
+  ##
+  enabled: true
+  ## @param networkPolicy.allowExternal Don't require server label for connections
+  ## The Policy model to apply. When set to false, only pods with the correct server label will have network access to the ports the application is listening on.
+  ##
+  allowExternal: true
+  ## @param networkPolicy.allowExternalEgress Allow the pod to access any range of port and all destinations.
+  ##
+  allowExternalEgress: true
+  ## @param networkPolicy.extraIngress [array] Add extra ingress rules to the NetworkPolicy
+  ##
+  extraIngress: []
+  ## @param networkPolicy.extraEgress [array] Add extra egress rules to the NetworkPolicy (ignored if allowExternalEgress=true)
+  ##
+  extraEgress: []
+  ## @param networkPolicy.ingressNSMatchLabels [object] Labels to match to allow traffic from other namespaces
+  ## @param networkPolicy.ingressNSPodMatchLabels [object] Pod labels to match to allow traffic from other namespaces
+  ##
+  ingressNSMatchLabels: {}
+  ingressNSPodMatchLabels: {}
+
+## @section Persistence Parameters
+##
+
+## Persistence parameters (data volume: avatars and image cache)
+## ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
+##
+persistence:
+  ## @param persistence.enabled Enable persistence using Persistent Volume Claims
+  ##
+  enabled: true
+  ## @param persistence.storageClass Storage class of backing PVC
+  ## If defined, storageClassName: <storageClass>
+  ## If set to "-", storageClassName: "", which disables dynamic provisioning
+  ## If undefined (the default) or set to null, no storageClassName spec is
+  ##   set, choosing the default provisioner.
+  ##
+  storageClass: ""
+  ## @param persistence.annotations Persistent Volume Claim annotations
+  ##
+  annotations: {}
+  ## @param persistence.labels Persistent Volume Claim labels
+  ##
+  labels: {}
+  ## @param persistence.accessModes Persistent Volume Access Modes
+  ##
+  accessModes:
+    - ReadWriteOnce
+  ## @param persistence.size Size of data volume
+  ##
+  size: 2Gi
+  ## @param persistence.existingClaim The name of an existing PVC to use for persistence
+  ##
+  existingClaim: ""
+  ## @param persistence.selector Selector to match an existing Persistent Volume for Scrob data PVC
+  ## If set, the PVC can't have a PV dynamically provisioned for it
+  ## selector:
+  ##   matchLabels:
+  ##     app: my-app
+  ##
+  selector: {}
+  ## @param persistence.dataSource Custom PVC data source
+  ##
+  dataSource: {}
+
+## @section Other Parameters
+##
+
+## ServiceAccount configuration
+##
+serviceAccount:
+  ## @param serviceAccount.create Specifies whether a ServiceAccount should be created
+  ##
+  create: true
+  ## @param serviceAccount.name The name of the ServiceAccount to use.
+  ## If not set and create is true, a name is generated using the common.names.fullname template
+  ##
+  name: ""
+  ## @param serviceAccount.annotations Additional Service Account annotations (evaluated as a template)
+  ##
+  annotations: {}
+  ## @param serviceAccount.automountServiceAccountToken Automount service account token for the server service account
+  ##
+  automountServiceAccountToken: false
+
+## @section Database parameters
+##
+
+## PostgreSQL deployed by this chart (official postgres image)
+## Scrob requires PostgreSQL. Set `postgresql.enabled=false` and fill `externalDatabase` to use your own server.
+##
+postgresql:
+  ## @param postgresql.enabled Deploy a PostgreSQL StatefulSet. Disable it to use an external database
+  ##
+  enabled: true
+  ## PostgreSQL image
+  ## ref: https://hub.docker.com/_/postgres
+  ## @param postgresql.image.registry PostgreSQL image registry
+  ## @param postgresql.image.repository PostgreSQL image repository
+  ## @skip postgresql.image.tag PostgreSQL image tag (immutable tags are recommended)
+  ## @param postgresql.image.digest PostgreSQL image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
+  ## @param postgresql.image.pullPolicy PostgreSQL image pull policy
+  ## @param postgresql.image.pullSecrets PostgreSQL image pull secrets
+  ##
+  image:
+    registry: docker.io
+    repository: library/postgres
+    tag: 17-alpine
+    digest: ""
+    pullPolicy: IfNotPresent
+    pullSecrets: []
+  ## Authentication parameters
+  ## @param postgresql.auth.username Name for the database user (also a superuser of the embedded server)
+  ## @param postgresql.auth.password Password for the database user. Generated randomly and preserved across upgrades if empty
+  ## @param postgresql.auth.database Name for the database
+  ## @param postgresql.auth.existingSecret Name of existing secret to use for the PostgreSQL password
+  ## @param postgresql.auth.secretKeys.passwordKey Name of the key in the existing secret containing the password
+  ##
+  auth:
+    username: scrob
+    password: ""
+    database: scrob
+    existingSecret: ""
+    secretKeys:
+      passwordKey: password
+  ## @param postgresql.containerPorts.postgresql PostgreSQL container port
+  ##
+  containerPorts:
+    postgresql: 5432
+  ## @param postgresql.extraEnvVars Array with extra environment variables to add to the PostgreSQL container
+  ##
+  extraEnvVars: []
+  ## Configure extra options for PostgreSQL probes
+  ## @param postgresql.livenessProbe.enabled Enable livenessProbe on PostgreSQL containers
+  ## @param postgresql.livenessProbe.initialDelaySeconds Initial delay seconds for livenessProbe
+  ## @param postgresql.livenessProbe.periodSeconds Period seconds for livenessProbe
+  ## @param postgresql.livenessProbe.timeoutSeconds Timeout seconds for livenessProbe
+  ## @param postgresql.livenessProbe.failureThreshold Failure threshold for livenessProbe
+  ## @param postgresql.livenessProbe.successThreshold Success threshold for livenessProbe
+  ##
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+  ## @param postgresql.readinessProbe.enabled Enable readinessProbe on PostgreSQL containers
+  ## @param postgresql.readinessProbe.initialDelaySeconds Initial delay seconds for readinessProbe
+  ## @param postgresql.readinessProbe.periodSeconds Period seconds for readinessProbe
+  ## @param postgresql.readinessProbe.timeoutSeconds Timeout seconds for readinessProbe
+  ## @param postgresql.readinessProbe.failureThreshold Failure threshold for readinessProbe
+  ## @param postgresql.readinessProbe.successThreshold Success threshold for readinessProbe
+  ##
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+  ## @param postgresql.resourcesPreset Set container resources according to one common preset (allowed values: none, nano, micro, small, medium, large, xlarge). This is ignored if postgresql.resources is set.
+  ##
+  resourcesPreset: micro
+  ## @param postgresql.resources Set container requests and limits for different resources like CPU or memory
+  ##
+  resources: {}
+  ## @param postgresql.podSecurityContext.enabled Enabled PostgreSQL pods' Security Context
+  ## @param postgresql.podSecurityContext.fsGroupChangePolicy Set filesystem group change policy
+  ## @param postgresql.podSecurityContext.fsGroup Set PostgreSQL pod's Security Context fsGroup
+  ##
+  podSecurityContext:
+    enabled: true
+    fsGroupChangePolicy: Always
+    fsGroup: 70
+  ## @param postgresql.containerSecurityContext.enabled Enabled PostgreSQL containers' Security Context
+  ## @param postgresql.containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in container
+  ## @param postgresql.containerSecurityContext.runAsUser Set PostgreSQL containers' Security Context runAsUser
+  ## @param postgresql.containerSecurityContext.runAsGroup Set PostgreSQL containers' Security Context runAsGroup
+  ## @param postgresql.containerSecurityContext.runAsNonRoot Set PostgreSQL containers' Security Context runAsNonRoot
+  ## @param postgresql.containerSecurityContext.privileged Set container's Security Context privileged
+  ## @param postgresql.containerSecurityContext.readOnlyRootFilesystem Set container's Security Context readOnlyRootFilesystem
+  ## @param postgresql.containerSecurityContext.allowPrivilegeEscalation Set container's Security Context allowPrivilegeEscalation
+  ## @param postgresql.containerSecurityContext.capabilities.drop List of capabilities to be dropped
+  ## @param postgresql.containerSecurityContext.seccompProfile.type Set container's Security Context seccomp profile
+  ##
+  containerSecurityContext:
+    enabled: true
+    seLinuxOptions: {}
+    runAsUser: 70
+    runAsGroup: 70
+    runAsNonRoot: true
+    privileged: false
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+    seccompProfile:
+      type: "RuntimeDefault"
+  ## @param postgresql.podLabels Extra labels for PostgreSQL pods
+  ##
+  podLabels: {}
+  ## @param postgresql.podAnnotations Annotations for PostgreSQL pods
+  ##
+  podAnnotations: {}
+  ## @param postgresql.nodeSelector Node labels for PostgreSQL pods assignment
+  ##
+  nodeSelector: {}
+  ## @param postgresql.tolerations Tolerations for PostgreSQL pods assignment
+  ##
+  tolerations: []
+  ## @param postgresql.affinity Affinity for PostgreSQL pods assignment
+  ##
+  affinity: {}
+  ## @param postgresql.priorityClassName PostgreSQL pods' priorityClassName
+  ##
+  priorityClassName: ""
+  ## @param postgresql.terminationGracePeriodSeconds Seconds PostgreSQL pod needs to terminate gracefully
+  ##
+  terminationGracePeriodSeconds: ""
+  ## @param postgresql.updateStrategy.type PostgreSQL statefulset strategy type
+  ##
+  updateStrategy:
+    type: RollingUpdate
+  ## @param postgresql.extraVolumes Optionally specify extra list of additional volumes for the PostgreSQL pod
+  ##
+  extraVolumes: []
+  ## @param postgresql.extraVolumeMounts Optionally specify extra list of additional volumeMounts for the PostgreSQL container
+  ##
+  extraVolumeMounts: []
+  ## PostgreSQL service parameters
+  ## @param postgresql.service.type PostgreSQL service type
+  ## @param postgresql.service.ports.postgresql PostgreSQL service port
+  ## @param postgresql.service.clusterIP PostgreSQL service Cluster IP
+  ## @param postgresql.service.annotations Additional custom annotations for the PostgreSQL service
+  ##
+  service:
+    type: ClusterIP
+    ports:
+      postgresql: 5432
+    clusterIP: ""
+    annotations: {}
+  ## PostgreSQL persistence parameters
+  ## @param postgresql.persistence.enabled Enable PostgreSQL data persistence using PVC
+  ## @param postgresql.persistence.storageClass PVC Storage Class for PostgreSQL volume
+  ## @param postgresql.persistence.accessModes PVC Access Mode for PostgreSQL volume
+  ## @param postgresql.persistence.size PVC Storage Request for PostgreSQL volume
+  ## @param postgresql.persistence.existingClaim Name of an existing PVC to use
+  ## @param postgresql.persistence.annotations Annotations for the PVC
+  ## @param postgresql.persistence.labels Labels for the PVC
+  ##
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+    size: 8Gi
+    existingClaim: ""
+    annotations: {}
+    labels: {}
+  ## PostgreSQL network policy
+  ## @param postgresql.networkPolicy.enabled Specifies whether a NetworkPolicy should be created for PostgreSQL (only Scrob pods can connect)
+  ##
+  networkPolicy:
+    enabled: true
+## CloudNativePG cluster created by this chart (requires the CloudNativePG operator and its CRDs in the cluster)
+## ref: https://cloudnative-pg.io/documentation/current/
+## Mutually exclusive with `postgresql.enabled`. Scrob connects to the `<release>-scrob-db-rw` service using the
+## `<release>-scrob-db-app` Secret generated by the operator. To use a cluster you manage yourself, see `externalDatabase`.
+##
+cnpg:
+  ## @param cnpg.enabled Create a CloudNativePG Cluster for Scrob (also set `postgresql.enabled=false`)
+  ##
+  enabled: false
+  ## @param cnpg.instances Number of PostgreSQL instances (1 primary + replicas)
+  ##
+  instances: 1
+  ## @param cnpg.imageName PostgreSQL image for the cluster. Empty uses the operator's default image
+  ## e.g. ghcr.io/cloudnative-pg/postgresql:17
+  ##
+  imageName: ""
+  ## @param cnpg.database Database created by the cluster for Scrob
+  ## @param cnpg.owner Owner (login role) of the database
+  ##
+  database: scrob
+  owner: scrob
+  ## @param cnpg.storage.size Size of each instance's data volume
+  ## @param cnpg.storage.storageClass StorageClass of the data volumes (falls back to the global default)
+  ##
+  storage:
+    size: 8Gi
+    storageClass: ""
+  ## @param cnpg.resourcesPreset Set PostgreSQL container resources according to one common preset (allowed values: none, nano, micro, small, medium, large, xlarge). This is ignored if cnpg.resources is set.
+  ##
+  resourcesPreset: small
+  ## @param cnpg.resources Set PostgreSQL container requests and limits for different resources like CPU or memory
+  ##
+  resources: {}
+  ## @param cnpg.annotations Annotations for the Cluster resource. e.g. `helm.sh/resource-policy: keep` keeps the cluster (and its data) on `helm uninstall`
+  ##
+  annotations: {}
+  ## @param cnpg.extraSpec Additional `spec` fields for the Cluster (backup, monitoring, postgresql.parameters, ...). Takes precedence over the fields above
+  ## e.g.
+  ## extraSpec:
+  ##   postgresql:
+  ##     parameters:
+  ##       max_connections: "200"
+  ##
+  extraSpec: {}
+## External database configuration, used when `postgresql.enabled=false` and `cnpg.enabled=false`
+##
+externalDatabase:
+  ## @param externalDatabase.host Database host. Not needed when `externalDatabase.existingSecretKeys.host` is set
+  ##
+  host: ""
+  ## @param externalDatabase.port Database port number. Ignored when `externalDatabase.existingSecretKeys.port` is set
+  ##
+  port: 5432
+  ## @param externalDatabase.user Non-root username for Scrob. Ignored when `externalDatabase.existingSecretKeys.user` is set
+  ##
+  user: scrob
+  ## @param externalDatabase.password Password for the non-root username for Scrob. Ignored when `externalDatabase.existingSecret` is set
+  ##
+  password: ""
+  ## @param externalDatabase.database Scrob database name. Ignored when `externalDatabase.existingSecretKeys.database` is set
+  ##
+  database: scrob
+  ## @param externalDatabase.existingSecret Name of an existing Secret containing the database credentials (e.g. a CloudNativePG `<cluster>-app` Secret)
+  ##
+  existingSecret: ""
+  ## Keys inside `externalDatabase.existingSecret`. Only `password` is required; leave the others empty to use the plain values above
+  ## CloudNativePG `<cluster>-app` Secret: host=host, port=port, user=username, password=password, database=dbname
+  ## @param externalDatabase.existingSecretKeys.host Key holding the database host
+  ## @param externalDatabase.existingSecretKeys.port Key holding the database port
+  ## @param externalDatabase.existingSecretKeys.user Key holding the database user
+  ## @param externalDatabase.existingSecretKeys.password Key holding the database password
+  ## @param externalDatabase.existingSecretKeys.database Key holding the database name
+  ##
+  existingSecretKeys:
+    host: ""
+    port: ""
+    user: ""
+    password: password
+    database: ""
+## Wait for the database to accept connections before starting Scrob
+##
+waitForDatabase:
+  ## @param waitForDatabase.enabled Add an init container that waits for PostgreSQL (uses the postgresql image)
+  ##
+  enabled: true

@@ -1,0 +1,25 @@
+{{- if .Values.postgresql.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "scrob.postgresql.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "common.labels.standard" (dict "customLabels" .Values.commonLabels "context" $) | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+  {{- if or .Values.commonAnnotations .Values.postgresql.service.annotations }}
+  {{- $annotations := include "common.tplvalues.merge" (dict "values" (list .Values.postgresql.service.annotations .Values.commonAnnotations) "context" .) }}
+  annotations: {{- include "common.tplvalues.render" (dict "value" $annotations "context" $) | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.postgresql.service.type }}
+  {{- if and .Values.postgresql.service.clusterIP (eq .Values.postgresql.service.type "ClusterIP") }}
+  clusterIP: {{ .Values.postgresql.service.clusterIP }}
+  {{- end }}
+  ports:
+    - name: postgresql
+      port: {{ .Values.postgresql.service.ports.postgresql }}
+      targetPort: postgresql
+      protocol: TCP
+  selector: {{- include "common.labels.matchLabels" (dict "customLabels" .Values.commonLabels "context" $) | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+{{- end }}

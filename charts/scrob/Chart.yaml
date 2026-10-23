@@ -1,0 +1,34 @@
+annotations:
+  category: Media
+  images: |
+    - name: scrob
+      image: docker.io/bellamy/scrob:2.33.0
+    - name: postgresql
+      image: docker.io/library/postgres:17-alpine
+  licenses: GPL-3.0
+apiVersion: v2
+appVersion: 2.33.0
+dependencies:
+  - name: common
+    repository: file://../common
+    version: 1.x.x
+description: Scrob is a self-hosted media tracker that syncs watch history from Jellyfin, Plex and Emby.
+home: https://github.com/RenzoDemuylder/helm-charts/tree/main/charts/scrob
+icon: https://raw.githubusercontent.com/ellite/scrob/main/frontend/public/scrob.svg
+keywords:
+  - scrob
+  - media
+  - tracker
+  - jellyfin
+  - plex
+  - emby
+  - trakt
+kubeVersion: ">=1.25.0-0"
+maintainers:
+  - name: RenzoDemuylder
+    url: https://github.com/RenzoDemuylder
+name: scrob
+sources:
+  - https://github.com/ellite/scrob
+  - https://github.com/RenzoDemuylder/helm-charts/tree/main/charts/scrob
+version: 0.1.0
