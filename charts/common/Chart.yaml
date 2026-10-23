@@ -1,0 +1,14 @@
+apiVersion: v2
+name: common
+description: Library chart with the template helpers shared by the charts of this repository. Not deployable by itself.
+type: library
+version: 1.0.0
+appVersion: 1.0.0
+keywords:
+  - common
+  - helper
+  - library
+sources:
+  - https://github.com/RenzoDemuylder/helm-charts/tree/main/charts/common
+annotations:
+  licenses: Apache-2.0
