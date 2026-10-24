@@ -29,8 +29,8 @@ Detailed references (read the one you need):
    bypass it with `command`/`args` in values and use `fsGroup` for volume ownership. Only fall back to
    `runAsNonRoot: false` / writable root FS when proven impossible, and say so in the values comments and README.
 3. **Scaffold** `charts/<name>/` by copying the layout of `charts/scrob` (Chart.yaml, .helmignore, values.yaml,
-   README.md, templates/). Do not use `helm create`. Rename, strip what the app does not need (e.g. postgresql
-   subtree), keep the section order of values.yaml.
+   README.md, templates/). Do not use `helm create`. Rename, strip what the app does not need (e.g. the postgresql
+   dependency and database values), keep the section order of values.yaml.
 4. **Write values.yaml first**, then templates that consume it. Every key has a `## @param` annotation.
 5. **Dependencies**: `common` via `repository: file://../common`, `version: 1.x.x`. Run `helm dependency update charts/<name>`.
    Never list `*.tgz` in `.helmignore` (Helm then ignores `charts/common-*.tgz` and reports the dependency as missing).
@@ -44,8 +44,9 @@ Detailed references (read the one you need):
 
 ## Non-negotiables
 
-- One chart = one primary workload. Databases the app needs are an in-chart optional StatefulSet
-  (`postgresql.enabled`) plus `externalDatabase.*`; do not depend on Bitnami subcharts or images.
+- One chart = one primary workload. PostgreSQL the app needs comes from the `charts/postgresql` subchart
+  (`file://../postgresql`, `condition: postgresql.enabled`) plus `externalDatabase.*` (and optionally `cnpg.*`); do not
+  copy a StatefulSet into the app chart, and do not depend on Bitnami subcharts or images. See `references/templates.md`.
 - Image values are always `image.registry/repository/tag/digest/pullPolicy/pullSecrets`, rendered with
   `common.images.image`. Pin an immutable tag (never `latest`); `appVersion` mirrors it.
 - Secrets: never put generated or user secrets in a ConfigMap or plain env value. Support `existingSecret`,

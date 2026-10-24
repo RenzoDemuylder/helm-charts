@@ -26,9 +26,10 @@ Copy `charts/scrob/values.yaml` as the skeleton. Order of sections (use `## @sec
 6. **Other Parameters**: `serviceAccount.{create,name,annotations,automountServiceAccountToken}`, `rbac.*` if needed,
    `tests.enabled` (health `helm test` hook, default `true`) and `tests.networkPolicy.enabled` (default `false`: it needs
    a CNI that enforces NetworkPolicy; the `ci` values switch it on).
-7. **Database parameters** (only if the app needs one): `<db>.enabled` (in-chart StatefulSet, same sub-layout as the app:
-   `image`, `auth.*`, probes, `resourcesPreset`, security contexts, `service`, `persistence`, `networkPolicy`)
-   `cnpg.*` (optional CloudNativePG `Cluster`: `enabled`, `instances`, `imageName`, `storage`, `resourcesPreset`/`resources`, `annotations`, `extraSpec`; mutually exclusive with `<db>.enabled`), and `externalDatabase.{host,port,user,password,database,existingSecret,existingSecretKeys.{host,port,user,password,database}}` (secret keys let users plug in operator-generated Secrets such as CloudNativePG `<cluster>-app`).
+7. **Database parameters** (only if the app needs one): `postgresql.enabled` (the `charts/postgresql` subchart; list only the keys the app sets or
+   reads: `auth.{username,password,database,existingSecret,secretKeys.passwordKey}`, `service.ports.postgresql`,
+   `resourcesPreset`; all other subchart values can still be set under `postgresql.`), plus `waitForDatabase.{enabled,image.*}`
+   `cnpg.*` (optional CloudNativePG `Cluster`: `enabled`, `instances`, `imageName`, `storage`, `resourcesPreset`/`resources`, `annotations`, `extraSpec`; mutually exclusive with `postgresql.enabled`), and `externalDatabase.{host,port,user,password,database,existingSecret,existingSecretKeys.{host,port,user,password,database}}` (secret keys let users plug in operator-generated Secrets such as CloudNativePG `<cluster>-app`).
 
 ## Annotations (readme-generator-for-helm)
 

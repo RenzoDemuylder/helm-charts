@@ -1,0 +1,9 @@
+# Ephemeral data volume, ports and credentials overridden
+resourcesPreset: nano
+auth:
+  username: app
+  database: app
+persistence:
+  enabled: false
+networkPolicy:
+  allowExternal: true

@@ -43,9 +43,15 @@ Sub-components (database) go in `templates/<component>/`. Copy from `charts/scro
 - **NetworkPolicy**: ingress limited to the container port; `allowExternal=false` requires the
   `<fullname>-client: "true"` pod label; `allowExternalEgress=true` by default. DB gets its own policy
   admitting only app pods.
-- **Databases in chart**: use the official upstream image, StatefulSet with `volumeClaimTemplates`, `PGDATA` in a
-  subdirectory of the mount, non-root UID of the image (postgres alpine = 70), read-only root FS with emptyDir for
-  `/tmp` and the socket dir, `pg_isready` exec probes, `wait-for-db` init container in the app pod.
+- **PostgreSQL**: never bundle a StatefulSet in an app chart; depend on `charts/postgresql`
+  (`dependencies: {name: postgresql, repository: file://../postgresql, version: 0.x.x, condition: postgresql.enabled}`).
+  The subchart owns the StatefulSet, Service, Secret, NetworkPolicy and its helm tests. In the app chart:
+  - subchart resource names come from `common.names.dependency.fullname` (`dict "chartName" "postgresql" "chartValues" .Values.postgresql "context" $`),
+    wrapped in an `<app>.postgresql.fullname` helper; host, secret name and key are derived from it;
+  - label the app pods `<postgresql fullname>-client: "true"` when `postgresql.enabled`, so the subchart NetworkPolicy
+    (`allowExternal: false`) admits them; strict egress selects `app.kubernetes.io/{name: postgresql,instance: <release>,component: postgresql}`;
+  - the `wait-for-db` init container has its own `waitForDatabase.image.*` (needs `pg_isready`), so it also works with
+    CloudNativePG or an external database when the subchart is disabled.
 - **Helm test hooks** (`templates/tests/*.yaml`): `Pod` with `helm.sh/hook: test` and
   `hook-delete-policy: before-hook-creation,hook-succeeded`, label `app.kubernetes.io/component: test` (so no selector
   matches it), `automountServiceAccountToken: false`, `nano` resources preset, the `<fullname>-client: "true"` label on

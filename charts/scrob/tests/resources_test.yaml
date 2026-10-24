@@ -3,7 +3,6 @@ templates:
   - templates/secret.yaml
   - templates/ingress.yaml
   - templates/cnpg/cluster.yaml
-  - templates/postgresql/statefulset.yaml
   - templates/pvc.yaml
 release:
   name: t
@@ -55,7 +54,7 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: creates a CloudNativePG cluster and drops the bundled PostgreSQL
+  - it: creates a CloudNativePG cluster
     set:
       postgresql.enabled: false
       cnpg.enabled: true
@@ -77,9 +76,6 @@ tests:
           path: spec.bootstrap.initdb.owner
           value: scrob
         template: templates/cnpg/cluster.yaml
-      - hasDocuments:
-          count: 0
-        template: templates/postgresql/statefulset.yaml
 
   - it: lets cnpg.extraSpec override generated fields
     template: templates/cnpg/cluster.yaml

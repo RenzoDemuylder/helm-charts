@@ -27,3 +27,22 @@
 {{- define "common.names.namespace" -}}
 {{- default .Release.Namespace .Values.namespaceOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
+
+{{/*
+Fullname of a subchart, computed from the parent chart: same rules as common.names.fullname applied to the subchart's
+own values (fullnameOverride, nameOverride, release name already containing the name).
+Usage: include "common.names.dependency.fullname" (dict "chartName" "postgresql" "chartValues" .Values.postgresql "context" $)
+*/}}
+{{- define "common.names.dependency.fullname" -}}
+{{- if .chartValues.fullnameOverride -}}
+{{- .chartValues.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- $name := default .chartName .chartValues.nameOverride -}}
+{{- $release := .context.Release.Name | lower -}}
+{{- if contains $name $release -}}
+{{- $release | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-%s" $release $name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}

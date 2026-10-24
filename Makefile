@@ -27,8 +27,9 @@ all: test e2e
 
 test: lint unit schema policy
 
+# charts other than common first-level depend on common, application charts may depend on postgresql: build in that order
 deps:
-	@for c in $(CHARTS); do helm dependency build charts/$$c >/dev/null; done
+	@for c in common postgresql $(filter-out common postgresql,$(CHARTS)); do helm dependency build charts/$$c >/dev/null; done
 .PHONY: deps
 
 ## lint: helm lint --strict for every chart, with defaults and with every ci values file

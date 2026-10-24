@@ -27,6 +27,10 @@ spec:
         {{- end }}
       labels: {{- include "common.labels.standard" (dict "customLabels" $podLabels "context" $) | nindent 8 }}
         app.kubernetes.io/component: scrob
+        {{- if .Values.postgresql.enabled }}
+        # lets Scrob through the NetworkPolicy of the PostgreSQL subchart
+        {{ include "scrob.postgresql.fullname" . }}-client: "true"
+        {{- end }}
     spec:
       serviceAccountName: {{ template "scrob.serviceAccountName" . }}
       {{- include "scrob.imagePullSecrets" . | nindent 6 }}
@@ -67,8 +71,8 @@ spec:
       initContainers:
         {{- if .Values.waitForDatabase.enabled }}
         - name: wait-for-db
-          image: {{ include "scrob.postgresql.image" . }}
-          imagePullPolicy: {{ .Values.postgresql.image.pullPolicy }}
+          image: {{ include "scrob.waitForDatabase.image" . }}
+          imagePullPolicy: {{ .Values.waitForDatabase.image.pullPolicy }}
           {{- if .Values.containerSecurityContext.enabled }}
           securityContext: {{- include "common.security.context" (dict "secContext" .Values.containerSecurityContext "context" $) | nindent 12 }}
           {{- end }}

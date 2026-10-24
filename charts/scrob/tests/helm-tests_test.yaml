@@ -1,18 +1,14 @@
 suite: helm test hooks
 templates:
   - templates/tests/health.yaml
-  - templates/tests/networkpolicy-deny.yaml
 release:
   name: t
 tests:
-  - it: renders the health test only by default
+  - it: renders the health test by default
+    template: templates/tests/health.yaml
     asserts:
       - hasDocuments:
           count: 1
-        template: templates/tests/health.yaml
-      - hasDocuments:
-          count: 0
-        template: templates/tests/networkpolicy-deny.yaml
 
   - it: marks the health test as a helm test hook that satisfies the restricted profile
     template: templates/tests/health.yaml
@@ -43,39 +39,10 @@ tests:
           path: metadata.labels["t-scrob-client"]
           value: "true"
 
-  - it: renders the network policy test when enabled
-    set:
-      tests.networkPolicy.enabled: true
-    asserts:
-      - hasDocuments:
-          count: 1
-        template: templates/tests/networkpolicy-deny.yaml
-      - equal:
-          path: metadata.annotations["helm.sh/hook"]
-          value: test
-        template: templates/tests/networkpolicy-deny.yaml
-      - notExists:
-          path: metadata.labels["t-scrob-client"]
-        template: templates/tests/networkpolicy-deny.yaml
-
-  - it: skips the network policy test without the bundled PostgreSQL
-    template: templates/tests/networkpolicy-deny.yaml
-    set:
-      tests.networkPolicy.enabled: true
-      postgresql.enabled: false
-      cnpg.enabled: true
-    asserts:
-      - hasDocuments:
-          count: 0
-
-  - it: renders no test pods when disabled
+  - it: renders no test pod when disabled
+    template: templates/tests/health.yaml
     set:
       tests.enabled: false
-      tests.networkPolicy.enabled: true
     asserts:
       - hasDocuments:
           count: 0
-        template: templates/tests/health.yaml
-      - hasDocuments:
-          count: 0
-        template: templates/tests/networkpolicy-deny.yaml

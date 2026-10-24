@@ -655,39 +655,22 @@ serviceAccount:
 ## Helm test hooks, run with `helm test <release>`
 ## ref: https://helm.sh/docs/topics/chart_tests/
 ## @param tests.enabled Render the `helm test` hooks (checks that Scrob answers through its Service)
-## @param tests.networkPolicy.enabled Also check that the PostgreSQL NetworkPolicy blocks pods that are not Scrob (needs a CNI that enforces NetworkPolicy and `postgresql.networkPolicy.enabled`)
 ##
 tests:
   enabled: true
-  networkPolicy:
-    enabled: false
 
 ## @section Database parameters
 ##
 
-## PostgreSQL deployed by this chart (official postgres image)
+## PostgreSQL deployed by the `postgresql` subchart (charts/postgresql, official postgres image)
 ## Scrob requires PostgreSQL. Set `postgresql.enabled=false` and fill `externalDatabase` to use your own server.
+## Only the values Scrob sets or reads are listed here; every other value of the subchart (persistence, resources,
+## security contexts, networkPolicy, ...) can be set under `postgresql.` too, see the README of the postgresql chart.
 ##
 postgresql:
-  ## @param postgresql.enabled Deploy a PostgreSQL StatefulSet. Disable it to use an external database
+  ## @param postgresql.enabled Deploy the PostgreSQL subchart. Disable it to use CloudNativePG or an external database
   ##
   enabled: true
-  ## PostgreSQL image
-  ## ref: https://hub.docker.com/_/postgres
-  ## @param postgresql.image.registry PostgreSQL image registry
-  ## @param postgresql.image.repository PostgreSQL image repository
-  ## @skip postgresql.image.tag PostgreSQL image tag (immutable tags are recommended)
-  ## @param postgresql.image.digest PostgreSQL image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
-  ## @param postgresql.image.pullPolicy PostgreSQL image pull policy
-  ## @param postgresql.image.pullSecrets PostgreSQL image pull secrets
-  ##
-  image:
-    registry: docker.io
-    repository: library/postgres
-    tag: 17-alpine
-    digest: ""
-    pullPolicy: IfNotPresent
-    pullSecrets: []
   ## Authentication parameters
   ## @param postgresql.auth.username Name for the database user (also a superuser of the embedded server)
   ## @param postgresql.auth.password Password for the database user. Generated randomly and preserved across upgrades if empty
@@ -702,146 +685,14 @@ postgresql:
     existingSecret: ""
     secretKeys:
       passwordKey: password
-  ## @param postgresql.containerPorts.postgresql PostgreSQL container port
-  ##
-  containerPorts:
-    postgresql: 5432
-  ## @param postgresql.extraEnvVars Array with extra environment variables to add to the PostgreSQL container
-  ##
-  extraEnvVars: []
-  ## Configure extra options for PostgreSQL probes
-  ## @param postgresql.livenessProbe.enabled Enable livenessProbe on PostgreSQL containers
-  ## @param postgresql.livenessProbe.initialDelaySeconds Initial delay seconds for livenessProbe
-  ## @param postgresql.livenessProbe.periodSeconds Period seconds for livenessProbe
-  ## @param postgresql.livenessProbe.timeoutSeconds Timeout seconds for livenessProbe
-  ## @param postgresql.livenessProbe.failureThreshold Failure threshold for livenessProbe
-  ## @param postgresql.livenessProbe.successThreshold Success threshold for livenessProbe
-  ##
-  livenessProbe:
-    enabled: true
-    initialDelaySeconds: 30
-    periodSeconds: 10
-    timeoutSeconds: 5
-    failureThreshold: 6
-    successThreshold: 1
-  ## @param postgresql.readinessProbe.enabled Enable readinessProbe on PostgreSQL containers
-  ## @param postgresql.readinessProbe.initialDelaySeconds Initial delay seconds for readinessProbe
-  ## @param postgresql.readinessProbe.periodSeconds Period seconds for readinessProbe
-  ## @param postgresql.readinessProbe.timeoutSeconds Timeout seconds for readinessProbe
-  ## @param postgresql.readinessProbe.failureThreshold Failure threshold for readinessProbe
-  ## @param postgresql.readinessProbe.successThreshold Success threshold for readinessProbe
-  ##
-  readinessProbe:
-    enabled: true
-    initialDelaySeconds: 5
-    periodSeconds: 10
-    timeoutSeconds: 5
-    failureThreshold: 6
-    successThreshold: 1
-  ## @param postgresql.resourcesPreset Set container resources according to one common preset (allowed values: none, nano, micro, small, medium, large, xlarge). This is ignored if postgresql.resources is set.
-  ##
-  resourcesPreset: micro
-  ## @param postgresql.resources Set container requests and limits for different resources like CPU or memory
-  ##
-  resources: {}
-  ## @param postgresql.podSecurityContext.enabled Enabled PostgreSQL pods' Security Context
-  ## @param postgresql.podSecurityContext.fsGroupChangePolicy Set filesystem group change policy
-  ## @param postgresql.podSecurityContext.fsGroup Set PostgreSQL pod's Security Context fsGroup
-  ##
-  podSecurityContext:
-    enabled: true
-    fsGroupChangePolicy: Always
-    fsGroup: 70
-  ## @param postgresql.containerSecurityContext.enabled Enabled PostgreSQL containers' Security Context
-  ## @param postgresql.containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in container
-  ## @param postgresql.containerSecurityContext.runAsUser Set PostgreSQL containers' Security Context runAsUser
-  ## @param postgresql.containerSecurityContext.runAsGroup Set PostgreSQL containers' Security Context runAsGroup
-  ## @param postgresql.containerSecurityContext.runAsNonRoot Set PostgreSQL containers' Security Context runAsNonRoot
-  ## @param postgresql.containerSecurityContext.privileged Set container's Security Context privileged
-  ## @param postgresql.containerSecurityContext.readOnlyRootFilesystem Set container's Security Context readOnlyRootFilesystem
-  ## @param postgresql.containerSecurityContext.allowPrivilegeEscalation Set container's Security Context allowPrivilegeEscalation
-  ## @param postgresql.containerSecurityContext.capabilities.drop List of capabilities to be dropped
-  ## @param postgresql.containerSecurityContext.seccompProfile.type Set container's Security Context seccomp profile
-  ##
-  containerSecurityContext:
-    enabled: true
-    seLinuxOptions: {}
-    runAsUser: 70
-    runAsGroup: 70
-    runAsNonRoot: true
-    privileged: false
-    readOnlyRootFilesystem: true
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop: ["ALL"]
-    seccompProfile:
-      type: "RuntimeDefault"
-  ## @param postgresql.podLabels Extra labels for PostgreSQL pods
-  ##
-  podLabels: {}
-  ## @param postgresql.podAnnotations Annotations for PostgreSQL pods
-  ##
-  podAnnotations: {}
-  ## @param postgresql.nodeSelector Node labels for PostgreSQL pods assignment
-  ##
-  nodeSelector: {}
-  ## @param postgresql.tolerations Tolerations for PostgreSQL pods assignment
-  ##
-  tolerations: []
-  ## @param postgresql.affinity Affinity for PostgreSQL pods assignment
-  ##
-  affinity: {}
-  ## @param postgresql.priorityClassName PostgreSQL pods' priorityClassName
-  ##
-  priorityClassName: ""
-  ## @param postgresql.terminationGracePeriodSeconds Seconds PostgreSQL pod needs to terminate gracefully
-  ##
-  terminationGracePeriodSeconds: ""
-  ## @param postgresql.updateStrategy.type PostgreSQL statefulset strategy type
-  ##
-  updateStrategy:
-    type: RollingUpdate
-  ## @param postgresql.extraVolumes Optionally specify extra list of additional volumes for the PostgreSQL pod
-  ##
-  extraVolumes: []
-  ## @param postgresql.extraVolumeMounts Optionally specify extra list of additional volumeMounts for the PostgreSQL container
-  ##
-  extraVolumeMounts: []
-  ## PostgreSQL service parameters
-  ## @param postgresql.service.type PostgreSQL service type
   ## @param postgresql.service.ports.postgresql PostgreSQL service port
-  ## @param postgresql.service.clusterIP PostgreSQL service Cluster IP
-  ## @param postgresql.service.annotations Additional custom annotations for the PostgreSQL service
   ##
   service:
-    type: ClusterIP
     ports:
       postgresql: 5432
-    clusterIP: ""
-    annotations: {}
-  ## PostgreSQL persistence parameters
-  ## @param postgresql.persistence.enabled Enable PostgreSQL data persistence using PVC
-  ## @param postgresql.persistence.storageClass PVC Storage Class for PostgreSQL volume
-  ## @param postgresql.persistence.accessModes PVC Access Mode for PostgreSQL volume
-  ## @param postgresql.persistence.size PVC Storage Request for PostgreSQL volume
-  ## @param postgresql.persistence.existingClaim Name of an existing PVC to use
-  ## @param postgresql.persistence.annotations Annotations for the PVC
-  ## @param postgresql.persistence.labels Labels for the PVC
+  ## @param postgresql.resourcesPreset Set PostgreSQL container resources according to one common preset (allowed values: none, nano, micro, small, medium, large, xlarge). This is ignored if postgresql.resources is set.
   ##
-  persistence:
-    enabled: true
-    storageClass: ""
-    accessModes:
-      - ReadWriteOnce
-    size: 8Gi
-    existingClaim: ""
-    annotations: {}
-    labels: {}
-  ## PostgreSQL network policy
-  ## @param postgresql.networkPolicy.enabled Specifies whether a NetworkPolicy should be created for PostgreSQL (only Scrob pods can connect)
-  ##
-  networkPolicy:
-    enabled: true
+  resourcesPreset: micro
 ## CloudNativePG cluster created by this chart (requires the CloudNativePG operator and its CRDs in the cluster)
 ## ref: https://cloudnative-pg.io/documentation/current/
 ## Mutually exclusive with `postgresql.enabled`. Scrob connects to the `<release>-scrob-db-rw` service using the
@@ -924,6 +775,21 @@ externalDatabase:
 ## Wait for the database to accept connections before starting Scrob
 ##
 waitForDatabase:
-  ## @param waitForDatabase.enabled Add an init container that waits for PostgreSQL (uses the postgresql image)
+  ## @param waitForDatabase.enabled Add an init container that waits for PostgreSQL
   ##
   enabled: true
+  ## Image of the init container (needs `pg_isready`)
+  ## @param waitForDatabase.image.registry wait-for-database image registry
+  ## @param waitForDatabase.image.repository wait-for-database image repository
+  ## @skip waitForDatabase.image.tag wait-for-database image tag (immutable tags are recommended)
+  ## @param waitForDatabase.image.digest wait-for-database image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
+  ## @param waitForDatabase.image.pullPolicy wait-for-database image pull policy
+  ## @param waitForDatabase.image.pullSecrets wait-for-database image pull secrets
+  ##
+  image:
+    registry: docker.io
+    repository: library/postgres
+    tag: 17-alpine
+    digest: ""
+    pullPolicy: IfNotPresent
+    pullSecrets: []

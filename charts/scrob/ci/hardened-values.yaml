@@ -3,10 +3,10 @@
 resourcesPreset: small
 postgresql:
   resourcesPreset: micro
+  tests:
+    networkPolicy:
+      enabled: true
 networkPolicy:
   enabled: true
   allowExternal: false
   allowExternalEgress: false
-tests:
-  networkPolicy:
-    enabled: true

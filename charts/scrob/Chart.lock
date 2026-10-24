@@ -1,6 +1,9 @@
 dependencies:
 - name: common
   repository: file://../common
-  version: 1.0.0
-digest: sha256:c68e472825af446bb3561dc92bb4659f388e197d7742c12a3e4f93a81506ac41
-generated: "2026-10-23T20:59:52.629799278+02:00"
+  version: 1.1.0
+- name: postgresql
+  repository: file://../postgresql
+  version: 0.1.0
+digest: sha256:9271dbae363612d39f8e2b12b89a79e22b62bdde17fc616cf561d8ba9f6906a8
+generated: "2026-10-24T23:39:31.304388512+02:00"

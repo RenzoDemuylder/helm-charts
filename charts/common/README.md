@@ -7,6 +7,7 @@ Written for this repository and kept deliberately small: it contains only what t
 | Helper | Purpose |
 | ------ | ------- |
 | `common.names.{name,fullname,namespace,chart}` | resource and label names, honouring the `*Override` values |
+| `common.names.dependency.fullname` | fullname of a subchart (e.g. `postgresql`) as computed inside that subchart, for use in the parent chart |
 | `common.labels.{standard,matchLabels}` | metadata labels and immutable selector labels |
 | `common.images.{image,pullSecrets}` | image reference (global registry, tag/digest) and `imagePullSecrets` block |
 | `common.tplvalues.{render,merge}` | evaluate values containing template expressions, merge maps |
