@@ -57,6 +57,8 @@ jobs:
       # Hardened cluster: PodSecurity "restricted" + NetworkPolicy enforcement (test/kind/cluster.yaml)
       - uses: helm/kind-action@v1
         with:
+          # the node image is pinned in test/kind/cluster.yaml; keep this kind version able to run it
+          version: v0.33.0
           cluster_name: chart-testing
           config: test/kind/cluster.yaml
 
