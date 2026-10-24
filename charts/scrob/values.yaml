@@ -504,7 +504,7 @@ ingress:
   ## @param ingress.hostname Default host for the ingress record
   ##
   hostname: scrob.local
-  ## @param ingress.ingressClassName IngressClass that will be used to implement the Ingress 
+  ## @param ingress.ingressClassName IngressClass that will be used to implement the Ingress
   ## This is supported in Kubernetes 1.18+ and required if you have more than one IngressClass marked as the default for your cluster.
   ## ref: https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/
   ##
@@ -651,6 +651,16 @@ serviceAccount:
   ## @param serviceAccount.automountServiceAccountToken Automount service account token for the server service account
   ##
   automountServiceAccountToken: false
+
+## Helm test hooks, run with `helm test <release>`
+## ref: https://helm.sh/docs/topics/chart_tests/
+## @param tests.enabled Render the `helm test` hooks (checks that Scrob answers through its Service)
+## @param tests.networkPolicy.enabled Also check that the PostgreSQL NetworkPolicy blocks pods that are not Scrob (needs a CNI that enforces NetworkPolicy and `postgresql.networkPolicy.enabled`)
+##
+tests:
+  enabled: true
+  networkPolicy:
+    enabled: false
 
 ## @section Database parameters
 ##

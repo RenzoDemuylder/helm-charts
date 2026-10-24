@@ -200,6 +200,23 @@ Usage: include "scrob.database.env" .
 {{- end -}}
 
 {{/*
+Security context of the helm test pods: always satisfies the "restricted" Pod Security Standard, independent of
+the (user configurable) security contexts of the application.
+*/}}
+{{- define "scrob.tests.securityContext" -}}
+runAsNonRoot: true
+runAsUser: 1000
+runAsGroup: 1000
+privileged: false
+allowPrivilegeEscalation: false
+readOnlyRootFilesystem: true
+capabilities:
+  drop: ["ALL"]
+seccompProfile:
+  type: RuntimeDefault
+{{- end -}}
+
+{{/*
 Compile all warnings into a single message.
 */}}
 {{- define "scrob.validateValues" -}}

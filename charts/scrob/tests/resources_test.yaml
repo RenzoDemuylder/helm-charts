@@ -1,0 +1,102 @@
+suite: optional resources
+templates:
+  - templates/secret.yaml
+  - templates/ingress.yaml
+  - templates/cnpg/cluster.yaml
+  - templates/postgresql/statefulset.yaml
+  - templates/pvc.yaml
+release:
+  name: t
+tests:
+  - it: creates the credentials secret with a secret key
+    template: templates/secret.yaml
+    asserts:
+      - isKind:
+          of: Secret
+      - exists:
+          path: data["secret-key"]
+
+  - it: does not create the credentials secret when an existing one is given
+    template: templates/secret.yaml
+    set:
+      existingSecret: mine
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: has no ingress by default
+    template: templates/ingress.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: routes the ingress host to the Service
+    template: templates/ingress.yaml
+    set:
+      ingress.enabled: true
+      ingress.hostname: scrob.example.org
+      ingress.ingressClassName: nginx
+    asserts:
+      - isKind:
+          of: Ingress
+      - equal:
+          path: spec.ingressClassName
+          value: nginx
+      - equal:
+          path: spec.rules[0].host
+          value: scrob.example.org
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: t-scrob
+
+  - it: has no CloudNativePG cluster by default
+    template: templates/cnpg/cluster.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: creates a CloudNativePG cluster and drops the bundled PostgreSQL
+    set:
+      postgresql.enabled: false
+      cnpg.enabled: true
+      cnpg.instances: 2
+      cnpg.storage.size: 3Gi
+    asserts:
+      - isKind:
+          of: Cluster
+        template: templates/cnpg/cluster.yaml
+      - equal:
+          path: spec.instances
+          value: 2
+        template: templates/cnpg/cluster.yaml
+      - equal:
+          path: spec.storage.size
+          value: 3Gi
+        template: templates/cnpg/cluster.yaml
+      - equal:
+          path: spec.bootstrap.initdb.owner
+          value: scrob
+        template: templates/cnpg/cluster.yaml
+      - hasDocuments:
+          count: 0
+        template: templates/postgresql/statefulset.yaml
+
+  - it: lets cnpg.extraSpec override generated fields
+    template: templates/cnpg/cluster.yaml
+    set:
+      postgresql.enabled: false
+      cnpg.enabled: true
+      cnpg.extraSpec:
+        instances: 3
+    asserts:
+      - equal:
+          path: spec.instances
+          value: 3
+
+  - it: honours an existing claim
+    template: templates/pvc.yaml
+    set:
+      persistence.existingClaim: mine
+    asserts:
+      - hasDocuments:
+          count: 0

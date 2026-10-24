@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "charts/**"
+      - "test/**"
+      - "Makefile"
       - "ct.yaml"
       - ".github/workflows/**"
 
@@ -32,26 +34,33 @@ jobs:
           changed=$(ct list-changed --config ct.yaml)
           if [[ -n "$changed" ]]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
+            # chart names for `make e2e`; empty (= all charts) when only the test infrastructure changed
+            echo "charts=$(echo "$changed" | xargs -n1 basename | xargs)" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Lint common library chart
         run: helm lint --strict charts/common
 
-      - name: Lint charts
+      - name: Lint charts (chart-testing)
         if: steps.list-changed.outputs.changed == 'true'
         run: ct lint --config ct.yaml
 
+      # lint (every ci values file), helm-unittest, kubeconform incl. CRDs, Kyverno house-style policies
+      - name: Static checks
+        run: make test
+
       - name: Check generated README is up to date
         run: |
-          for c in charts/*/; do
-            [ -f "$c/README.md" ] || continue
-            npx --yes @bitnami/readme-generator-for-helm@2.7.2 --values "$c/values.yaml" --readme "$c/README.md"
-          done
+          make readme
           git diff --exit-code -- 'charts/*/README.md'
 
+      # Hardened cluster: PodSecurity "restricted" + NetworkPolicy enforcement (test/kind/cluster.yaml)
       - uses: helm/kind-action@v1
-        if: steps.list-changed.outputs.changed == 'true'
+        with:
+          # the node image is pinned in test/kind/cluster.yaml; keep this kind version able to run it
+          version: v0.33.0
+          cluster_name: chart-testing
+          config: test/kind/cluster.yaml
 
-      - name: Install charts
-        if: steps.list-changed.outputs.changed == 'true'
-        run: ct install --config ct.yaml
+      - name: Install, helm test and upgrade charts
+        run: make e2e E2E_CHARTS="${{ steps.list-changed.outputs.charts }}"

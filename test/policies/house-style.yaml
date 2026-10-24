@@ -1,0 +1,256 @@
+# Conventions every chart in this repository must satisfy. Applied offline by `make policy` to the manifests rendered
+# from each chart with each of its ci/*-values.yaml (see Makefile). Pod rules are written against Pods and
+# auto-generated for Deployments, StatefulSets, DaemonSets, Jobs and CronJobs by the Kyverno CLI.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: chart-security-context
+  annotations:
+    policies.kyverno.io/description: >-
+      Containers run as non-root with a read-only root filesystem, without privilege escalation, with all
+      capabilities dropped and the RuntimeDefault seccomp profile.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: run-as-non-root
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: "containers must set securityContext.runAsNonRoot=true"
+        pattern:
+          spec:
+            =(initContainers):
+              - securityContext:
+                  runAsNonRoot: true
+            containers:
+              - securityContext:
+                  runAsNonRoot: true
+    - name: read-only-root-filesystem
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: "containers must set securityContext.readOnlyRootFilesystem=true (mount an emptyDir where writes are needed)"
+        pattern:
+          spec:
+            =(initContainers):
+              - securityContext:
+                  readOnlyRootFilesystem: true
+            containers:
+              - securityContext:
+                  readOnlyRootFilesystem: true
+    - name: no-privilege-escalation
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: "containers must set securityContext.allowPrivilegeEscalation=false"
+        pattern:
+          spec:
+            =(initContainers):
+              - securityContext:
+                  allowPrivilegeEscalation: false
+            containers:
+              - securityContext:
+                  allowPrivilegeEscalation: false
+    - name: drop-all-capabilities
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: "containers must drop ALL capabilities"
+        foreach:
+          - list: request.object.spec.containers[]
+            deny:
+              conditions:
+                all:
+                  - key: ALL
+                    operator: AnyNotIn
+                    value: "{{ element.securityContext.capabilities.drop[] || `[]` }}"
+          - list: request.object.spec.initContainers[]
+            deny:
+              conditions:
+                all:
+                  - key: ALL
+                    operator: AnyNotIn
+                    value: "{{ element.securityContext.capabilities.drop[] || `[]` }}"
+    - name: seccomp-runtime-default
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: "the pod, or every container, must use seccompProfile.type=RuntimeDefault"
+        anyPattern:
+          - spec:
+              securityContext:
+                seccompProfile:
+                  type: RuntimeDefault
+          - spec:
+              =(initContainers):
+                - securityContext:
+                    seccompProfile:
+                      type: RuntimeDefault
+              containers:
+                - securityContext:
+                    seccompProfile:
+                      type: RuntimeDefault
+    - name: no-service-account-token
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: "pods must set automountServiceAccountToken=false (opt in per chart with a policy exception if the app needs the API)"
+        pattern:
+          spec:
+            automountServiceAccountToken: false
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: chart-workload-hygiene
+  annotations:
+    policies.kyverno.io/description: >-
+      Containers have resource requests and a memory limit, and use pinned image tags.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: resources-set
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: "containers need resources.requests.cpu/memory and resources.limits.memory"
+        pattern:
+          spec:
+            =(initContainers):
+              - resources:
+                  requests:
+                    cpu: "?*"
+                    memory: "?*"
+                  limits:
+                    memory: "?*"
+            containers:
+              - resources:
+                  requests:
+                    cpu: "?*"
+                    memory: "?*"
+                  limits:
+                    memory: "?*"
+    - name: image-has-tag
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: "images must carry an explicit tag or digest"
+        pattern:
+          spec:
+            =(initContainers):
+              - image: "*:* | *@sha256:*"
+            containers:
+              - image: "*:* | *@sha256:*"
+    - name: image-not-latest
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: "images must not use the mutable 'latest' tag"
+        pattern:
+          spec:
+            =(initContainers):
+              - image: "!*:latest"
+            containers:
+              - image: "!*:latest"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: chart-labels
+  annotations:
+    policies.kyverno.io/description: >-
+      Resources carry the recommended app.kubernetes.io labels so releases can be selected consistently.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: standard-labels
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Service
+                - ServiceAccount
+                - PersistentVolumeClaim
+                - Ingress
+                - NetworkPolicy
+                - PodDisruptionBudget
+                - Secret
+                - ConfigMap
+                - Pod
+      validate:
+        message: "metadata.labels must include app.kubernetes.io/name, app.kubernetes.io/instance and app.kubernetes.io/managed-by"
+        pattern:
+          metadata:
+            labels:
+              app.kubernetes.io/name: "?*"
+              app.kubernetes.io/instance: "?*"
+              app.kubernetes.io/managed-by: "?*"
+    - name: component-label-on-workloads
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Service
+                - Pod
+      validate:
+        message: "workloads and Services must set app.kubernetes.io/component so several components of one release stay distinguishable"
+        pattern:
+          metadata:
+            labels:
+              app.kubernetes.io/component: "?*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: chart-storage
+  annotations:
+    policies.kyverno.io/description: >-
+      A Deployment that mounts a PersistentVolumeClaim must use the Recreate strategy: a ReadWriteOnce volume cannot
+      be attached by the old and the new pod of a rolling update at the same time.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: pvc-requires-recreate
+      match:
+        any:
+          - resources:
+              kinds: [Deployment]
+      preconditions:
+        all:
+          - key: "{{ length(request.object.spec.template.spec.volumes[?persistentVolumeClaim] || `[]`) }}"
+            operator: GreaterThan
+            value: 0
+      validate:
+        message: "Deployments mounting a PersistentVolumeClaim must set strategy.type=Recreate"
+        pattern:
+          spec:
+            strategy:
+              type: Recreate

@@ -23,7 +23,9 @@ Copy `charts/scrob/values.yaml` as the skeleton. Order of sections (use `## @sec
    `networkPolicy.*` (`enabled`, `allowExternal`, `allowExternalEgress`, `extraIngress`, `extraEgress`,
    `ingressNSMatchLabels`, `ingressNSPodMatchLabels`).
 5. **Persistence Parameters**: `persistence.{enabled,storageClass,annotations,labels,accessModes,size,existingClaim,selector,dataSource}`.
-6. **Other Parameters**: `serviceAccount.{create,name,annotations,automountServiceAccountToken}`, `rbac.*` if needed.
+6. **Other Parameters**: `serviceAccount.{create,name,annotations,automountServiceAccountToken}`, `rbac.*` if needed,
+   `tests.enabled` (health `helm test` hook, default `true`) and `tests.networkPolicy.enabled` (default `false`: it needs
+   a CNI that enforces NetworkPolicy; the `ci` values switch it on).
 7. **Database parameters** (only if the app needs one): `<db>.enabled` (in-chart StatefulSet, same sub-layout as the app:
    `image`, `auth.*`, probes, `resourcesPreset`, security contexts, `service`, `persistence`, `networkPolicy`)
    `cnpg.*` (optional CloudNativePG `Cluster`: `enabled`, `instances`, `imageName`, `storage`, `resourcesPreset`/`resources`, `annotations`, `extraSpec`; mutually exclusive with `<db>.enabled`), and `externalDatabase.{host,port,user,password,database,existingSecret,existingSecretKeys.{host,port,user,password,database}}` (secret keys let users plug in operator-generated Secrets such as CloudNativePG `<cluster>-app`).

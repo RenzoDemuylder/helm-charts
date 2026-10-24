@@ -1,6 +1,6 @@
 ---
 name: create-helm-chart
-description: Create or modify a Helm chart in this repository in the style of Bitnami charts, without copying them (consistent values.yaml layout, common library chart, secure defaults, generated README). Use when adding a new chart for an open source application, adding features to an existing chart, or reviewing a chart for consistency.
+description: Create, modify, test or review a Helm chart in this repository in the style of Bitnami charts, without copying them (consistent values.yaml layout, common library chart, secure defaults, generated README, unit/policy/kind tests). Use when adding a new chart for an open source application, adding features to an existing chart, writing or fixing chart tests, or reviewing a chart for consistency.
 ---
 
 # Creating a Helm chart (Bitnami style)
@@ -34,9 +34,12 @@ Detailed references (read the one you need):
 4. **Write values.yaml first**, then templates that consume it. Every key has a `## @param` annotation.
 5. **Dependencies**: `common` via `repository: file://../common`, `version: 1.x.x`. Run `helm dependency update charts/<name>`.
    Never list `*.tgz` in `.helmignore` (Helm then ignores `charts/common-*.tgz` and reports the dependency as missing).
-6. **Validate** with everything in `references/checklist.md`: lint --strict, template permutations, kubeconform,
+6. **Test**: every chart ships `tests/*_test.yaml` (helm-unittest), `ci/*-values.yaml` (one file per permutation, at
+   least `default-values.yaml`) and `templates/tests/*.yaml` (`helm test` hooks, restricted-PSA compliant). Copy them
+   from `charts/scrob` and adapt. `make test` (static) and `make e2e` (kind) must pass; see `references/checklist.md`.
+7. **Validate** with everything in `references/checklist.md`: lint --strict, template permutations, kubeconform,
    readme generation, and a Docker smoke test of the image.
-7. **Register**: add the chart to the table in the root `README.md`; bump `version` in `Chart.yaml`
+8. **Register**: add the chart to the table in the root `README.md`; bump `version` in `Chart.yaml`
    (patch for fixes, minor for new values, major for breaking value changes; `appVersion` = upstream tag).
 
 ## Non-negotiables
@@ -57,5 +60,12 @@ Detailed references (read the one you need):
   `scrob.validateValues`-style helper that fails on `replicaCount > 1`.
 - `README.md` parameter tables are **generated** from the `@param` comments; never hand edit between the
   `## Parameters` section headers. Chart.yaml `home`/`sources`/`maintainers` point at `github.com/RenzoDemuylder/helm-charts`.
+- Testing is part of the chart, not an afterthought: `tests/` (helm-unittest), `ci/*-values.yaml` (one per permutation:
+  default, external database, ingress, strictest NetworkPolicy, ...) and `templates/tests/` hooks. Hooks use their own
+  restricted security context (`<app>.tests.securityContext`), never the user-configurable one, and a check that
+  proves a negative (e.g. NetworkPolicy blocks strangers) must first prove it could have succeeded (DNS resolves).
+- The policies in `test/policies/` are binding for every chart and run on every `ci` permutation, including resources
+  added through `extraDeploy` in `ci` files (they need labels, security contexts and resources too). Change a rule
+  there, for all charts, when a convention changes; do not work around it in one chart.
 - Do not invent values keys that already have a convention (e.g. use `persistence.size`, not `storage.capacity`;
   `service.ports.http`, not `service.port`; `ingress.hostname`, not `ingress.host`).
