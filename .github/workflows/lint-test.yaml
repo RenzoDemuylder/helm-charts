@@ -51,10 +51,7 @@ jobs:
 
       - name: Check generated README is up to date
         run: |
-          for c in charts/*/; do
-            [ -f "$c/README.md" ] || continue
-            npx --yes @bitnami/readme-generator-for-helm@2.7.2 --values "$c/values.yaml" --readme "$c/README.md"
-          done
+          make readme
           git diff --exit-code -- 'charts/*/README.md'
 
       # Hardened cluster: PodSecurity "restricted" + NetworkPolicy enforcement (test/kind/cluster.yaml)
