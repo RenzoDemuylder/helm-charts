@@ -7,6 +7,7 @@ Charts are published as OCI artifacts to GHCR.
 | Chart | App | Description |
 | ----- | --- | ----------- |
 | [scrob](charts/scrob) | [ellite/scrob](https://github.com/ellite/scrob) | Self-hosted media tracker |
+| [postgresql](charts/postgresql) | [PostgreSQL](https://www.postgresql.org/) | Single-instance PostgreSQL, standalone or as a dependency of other charts |
 | [common](charts/common) | - | Library chart with shared helpers (own helpers) |
 
 ## Usage

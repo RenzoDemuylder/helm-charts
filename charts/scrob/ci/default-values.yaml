@@ -2,6 +2,6 @@
 resourcesPreset: small
 postgresql:
   resourcesPreset: micro
-tests:
-  networkPolicy:
-    enabled: true
+  tests:
+    networkPolicy:
+      enabled: true

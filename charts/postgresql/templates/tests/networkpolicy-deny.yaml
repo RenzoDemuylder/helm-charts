@@ -1,4 +1,4 @@
-{{- if and .Values.tests.enabled .Values.tests.networkPolicy.enabled .Values.postgresql.enabled .Values.postgresql.networkPolicy.enabled }}
+{{- if and .Values.tests.enabled .Values.tests.networkPolicy.enabled .Values.networkPolicy.enabled (not .Values.networkPolicy.allowExternal) }}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -15,26 +15,26 @@ metadata:
 spec:
   restartPolicy: Never
   automountServiceAccountToken: false
-  {{- include "scrob.imagePullSecrets" . | nindent 2 }}
+  {{- include "postgresql.imagePullSecrets" . | nindent 2 }}
   securityContext:
     seccompProfile:
       type: RuntimeDefault
   containers:
     - name: netpol-deny
-      image: {{ include "scrob.postgresql.image" . }}
-      imagePullPolicy: {{ .Values.postgresql.image.pullPolicy }}
-      securityContext: {{- include "scrob.tests.securityContext" . | nindent 8 }}
+      image: {{ include "postgresql.image" . }}
+      imagePullPolicy: {{ .Values.image.pullPolicy }}
+      securityContext: {{- include "postgresql.tests.securityContext" . | nindent 8 }}
       command:
         - sh
         - -c
         - |
           # fully qualified: busybox nslookup does not apply the pod's search domains
-          host="{{ include "scrob.postgresql.fullname" . }}.{{ include "common.names.namespace" . }}.svc.{{ .Values.clusterDomain }}"
-          port="{{ .Values.postgresql.service.ports.postgresql }}"
+          host="{{ include "common.names.fullname" . }}.{{ include "common.names.namespace" . }}.svc.{{ .Values.clusterDomain }}"
+          port="{{ .Values.service.ports.postgresql }}"
           # without a working DNS lookup a failing connection would prove nothing
           nslookup "$host" >/dev/null || { echo "cannot resolve $host" >&2; exit 1; }
           if nc -z -w 5 "$host" "$port"; then
-            echo "reached $host:$port from a pod that is not Scrob: the NetworkPolicy is not enforced" >&2
+            echo "reached $host:$port from a pod without the client label: the NetworkPolicy is not enforced" >&2
             exit 1
           fi
           echo "connection to $host:$port is blocked as expected"

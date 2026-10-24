@@ -34,7 +34,9 @@ spec:
       {{- if .Values.postgresql.enabled }}
       to:
         - podSelector:
-            matchLabels: {{- include "common.labels.matchLabels" (dict "customLabels" .Values.commonLabels "context" $) | nindent 14 }}
+            matchLabels:
+              app.kubernetes.io/name: {{ default "postgresql" .Values.postgresql.nameOverride }}
+              app.kubernetes.io/instance: {{ .Release.Name }}
               app.kubernetes.io/component: postgresql
       {{- else if .Values.cnpg.enabled }}
       to:

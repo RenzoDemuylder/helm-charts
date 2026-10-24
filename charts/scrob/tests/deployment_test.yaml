@@ -81,15 +81,30 @@ tests:
           path: spec.template.spec.containers[0].env
           content:
             name: POSTGRES_HOST
-            value: t-scrob-postgresql
+            value: t-postgresql
       - contains:
           path: spec.template.spec.containers[0].env
           content:
             name: POSTGRES_PASSWORD
             valueFrom:
               secretKeyRef:
-                name: t-scrob-postgresql
+                name: t-postgresql
                 key: password
+      - equal:
+          path: spec.template.metadata.labels["t-postgresql-client"]
+          value: "true"
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: docker.io/library/postgres:17-alpine
+
+  - it: does not label the pods as PostgreSQL clients without the subchart
+    template: templates/deployment.yaml
+    set:
+      postgresql.enabled: false
+      cnpg.enabled: true
+    asserts:
+      - notExists:
+          path: spec.template.metadata.labels["t-postgresql-client"]
 
   - it: uses the CloudNativePG read-write service and app secret
     template: templates/deployment.yaml

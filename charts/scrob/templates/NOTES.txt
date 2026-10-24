@@ -74,4 +74,4 @@ WARNING: serverUrl is not set, SERVER_URL defaults to {{ include "scrob.serverUr
 {{- end }}
 
 {{- include "common.warnings.rollingTag" .Values.image }}
-{{- include "common.warnings.rollingTag" .Values.postgresql.image }}
+{{- include "common.warnings.rollingTag" .Values.waitForDatabase.image }}

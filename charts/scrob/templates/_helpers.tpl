@@ -8,17 +8,17 @@ Return the proper Scrob image name
 {{- end -}}
 
 {{/*
-Return the proper PostgreSQL image name
+Return the proper image name of the wait-for-database init container
 */}}
-{{- define "scrob.postgresql.image" -}}
-{{ include "common.images.image" (dict "imageRoot" .Values.postgresql.image "global" .Values.global) }}
+{{- define "scrob.waitForDatabase.image" -}}
+{{ include "common.images.image" (dict "imageRoot" .Values.waitForDatabase.image "global" .Values.global) }}
 {{- end -}}
 
 {{/*
 Return the proper Docker Image Registry Secret Names
 */}}
 {{- define "scrob.imagePullSecrets" -}}
-{{- include "common.images.pullSecrets" (dict "images" (list .Values.image .Values.postgresql.image) "global" .Values.global) -}}
+{{- include "common.images.pullSecrets" (dict "images" (list .Values.image .Values.waitForDatabase.image) "global" .Values.global) -}}
 {{- end -}}
 
 {{/*
@@ -60,21 +60,21 @@ Return the public URL of Scrob
 {{- end -}}
 
 {{/*
-Return the PostgreSQL fullname
+Return the fullname of the PostgreSQL subchart resources
 */}}
 {{- define "scrob.postgresql.fullname" -}}
-{{- printf "%s-postgresql" (include "common.names.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- include "common.names.dependency.fullname" (dict "chartName" "postgresql" "chartValues" .Values.postgresql "context" $) -}}
 {{- end -}}
 
 {{/*
-Return the name of the Secret holding the PostgreSQL password (deployed by this chart)
+Return the name of the Secret holding the PostgreSQL password (deployed by the postgresql subchart)
 */}}
 {{- define "scrob.postgresql.secretName" -}}
 {{- default (include "scrob.postgresql.fullname" .) .Values.postgresql.auth.existingSecret -}}
 {{- end -}}
 
 {{/*
-Return which database backs Scrob: "postgresql" (StatefulSet of this chart), "cnpg" (CloudNativePG Cluster created by
+Return which database backs Scrob: "postgresql" (StatefulSet of the postgresql subchart), "cnpg" (CloudNativePG Cluster created by
 this chart) or "external" (externalDatabase)
 */}}
 {{- define "scrob.database.mode" -}}

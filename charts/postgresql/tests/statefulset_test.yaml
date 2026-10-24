@@ -1,0 +1,104 @@
+suite: statefulset
+templates:
+  - templates/statefulset.yaml
+release:
+  name: t
+tests:
+  - it: runs a single hardened PostgreSQL pod
+    asserts:
+      - isKind:
+          of: StatefulSet
+      - equal:
+          path: metadata.name
+          value: t-postgresql
+      - equal:
+          path: spec.replicas
+          value: 1
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: docker.io/library/postgres:17-alpine
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop
+          value: ["ALL"]
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+
+  - it: keeps selector labels stable when common labels change
+    set:
+      commonLabels:
+        team: a
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels
+          value:
+            app.kubernetes.io/name: postgresql
+            app.kubernetes.io/instance: t
+            app.kubernetes.io/component: postgresql
+      - equal:
+          path: spec.template.metadata.labels.team
+          value: a
+
+  - it: reads the password from the generated secret
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[2].valueFrom.secretKeyRef
+          value:
+            name: t-postgresql
+            key: password
+
+  - it: reads the password from an existing secret
+    set:
+      auth.existingSecret: mine
+      auth.secretKeys.passwordKey: pg-pass
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[2].valueFrom.secretKeyRef
+          value:
+            name: mine
+            key: pg-pass
+
+  - it: requests a volume claim template by default
+    asserts:
+      - equal:
+          path: spec.volumeClaimTemplates[0].spec.resources.requests.storage
+          value: 8Gi
+
+  - it: uses an emptyDir without persistence
+    set:
+      persistence.enabled: false
+    asserts:
+      - notExists:
+          path: spec.volumeClaimTemplates
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: data
+            emptyDir: {}
+
+  - it: mounts an existing claim instead of creating one
+    set:
+      persistence.existingClaim: mine
+    asserts:
+      - notExists:
+          path: spec.volumeClaimTemplates
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: data
+            persistentVolumeClaim:
+              claimName: mine
+
+  - it: honours fullnameOverride
+    set:
+      fullnameOverride: db
+    asserts:
+      - equal:
+          path: metadata.name
+          value: db

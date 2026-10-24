@@ -12,6 +12,10 @@ dependencies:
   - name: common
     repository: file://../common
     version: 1.x.x
+  - name: postgresql
+    repository: file://../postgresql
+    version: 0.x.x
+    condition: postgresql.enabled
 description: Scrob is a self-hosted media tracker that syncs watch history from Jellyfin, Plex and Emby.
 home: https://github.com/RenzoDemuylder/helm-charts/tree/main/charts/scrob
 icon: https://raw.githubusercontent.com/ellite/scrob/main/frontend/public/scrob.svg
@@ -27,4 +31,4 @@ name: scrob
 sources:
   - https://github.com/ellite/scrob
   - https://github.com/RenzoDemuylder/helm-charts/tree/main/charts/scrob
-version: 0.1.1
+version: 0.2.0

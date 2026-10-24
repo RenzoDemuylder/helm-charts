@@ -1,0 +1,29 @@
+annotations:
+  category: Database
+  images: |
+    - name: postgresql
+      image: docker.io/library/postgres:17-alpine
+  licenses: PostgreSQL
+apiVersion: v2
+appVersion: "17"
+dependencies:
+  - name: common
+    repository: file://../common
+    version: 1.x.x
+description: Single-instance PostgreSQL (official image) with secure defaults, meant to be used standalone or as a dependency of application charts.
+home: https://github.com/RenzoDemuylder/helm-charts/tree/main/charts/postgresql
+icon: https://www.postgresql.org/media/img/about/press/elephant.png
+keywords:
+  - postgresql
+  - postgres
+  - database
+kubeVersion: ">=1.25.0-0"
+maintainers:
+  - name: RenzoDemuylder
+    url: https://github.com/RenzoDemuylder
+name: postgresql
+sources:
+  - https://www.postgresql.org/
+  - https://github.com/docker-library/postgres
+  - https://github.com/RenzoDemuylder/helm-charts/tree/main/charts/postgresql
+version: 0.1.0

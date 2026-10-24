@@ -1,7 +1,7 @@
 suite: network policies
 templates:
   - templates/networkpolicy.yaml
-  - templates/postgresql/networkpolicy.yaml
+  - charts/postgresql/templates/networkpolicy.yaml
 release:
   name: t
 tests:
@@ -12,15 +12,13 @@ tests:
       - hasDocuments:
           count: 1
 
-  - it: only lets Scrob pods reach the bundled PostgreSQL
-    template: templates/postgresql/networkpolicy.yaml
+  - it: only lets pods carrying the client label reach the bundled PostgreSQL
+    template: charts/postgresql/templates/networkpolicy.yaml
     asserts:
       - equal:
           path: spec.ingress[0].from[0].podSelector.matchLabels
           value:
-            app.kubernetes.io/name: scrob
-            app.kubernetes.io/instance: t
-            app.kubernetes.io/component: scrob
+            t-postgresql-client: "true"
       - equal:
           path: spec.ingress[0].ports[0].port
           value: 5432
@@ -35,8 +33,11 @@ tests:
           path: spec.egress
           count: 2
       - equal:
-          path: spec.egress[1].to[0].podSelector.matchLabels["app.kubernetes.io/component"]
-          value: postgresql
+          path: spec.egress[1].to[0].podSelector.matchLabels
+          value:
+            app.kubernetes.io/name: postgresql
+            app.kubernetes.io/instance: t
+            app.kubernetes.io/component: postgresql
       - equal:
           path: spec.ingress[0].from[0].podSelector.matchLabels["t-scrob-client"]
           value: "true"
