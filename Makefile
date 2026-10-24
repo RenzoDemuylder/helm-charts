@@ -16,7 +16,8 @@ CRD_SCHEMA_LOCATION ?= https://raw.githubusercontent.com/datreeio/CRDs-catalog/m
 CHARTS     := $(notdir $(patsubst %/,%,$(wildcard charts/*/)))
 APP_CHARTS := $(filter-out common,$(CHARTS))
 RENDER_DIR := .render
-DOCKER_RUN := docker run --rm --user $$(id -u):$$(id -g) -v "$$PWD:/work" -w /work
+# HOME and the XDG dirs point at /tmp: the runner uid has no home in the image and Helm needs a writable cache
+DOCKER_RUN := docker run --rm --user $$(id -u):$$(id -g) -e HOME=/tmp -e XDG_CACHE_HOME=/tmp/.cache -e XDG_CONFIG_HOME=/tmp/.config -e XDG_DATA_HOME=/tmp/.data -v "$$PWD:/work" -w /work
 
 .PHONY: help all test lint unit render schema policy e2e cluster cluster-delete readme clean
 help:
