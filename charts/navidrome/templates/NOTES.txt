@@ -1,0 +1,85 @@
+CHART NAME: {{ .Chart.Name }}
+CHART VERSION: {{ .Chart.Version }}
+APP VERSION: {{ .Chart.AppVersion }}
+
+** Please be patient while the chart is being deployed (the first start migrates the database and scans the library) **
+
+{{- if .Values.diagnosticMode.enabled }}
+
+The chart has been deployed in diagnostic mode. All probes have been disabled and the command has been overwritten with:
+
+  command: {{- include "common.tplvalues.render" (dict "value" .Values.diagnosticMode.command "context" $) | nindent 4 }}
+  args: {{- include "common.tplvalues.render" (dict "value" .Values.diagnosticMode.args "context" $) | nindent 4 }}
+
+Get the list of pods by executing:
+
+  kubectl get pods --namespace {{ include "common.names.namespace" . }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+Access the pod you want to debug by executing
+
+  kubectl exec --namespace {{ include "common.names.namespace" . }} -ti <NAME OF THE POD> -- sh
+
+In order to replicate the container startup scripts execute this command:
+
+  sh -c "{{ join " " .Values.args }}"
+
+{{- else }}
+
+Navidrome can be accessed through the following DNS name from within your cluster:
+
+    {{ include "common.names.fullname" . }}.{{ include "common.names.namespace" . }}.svc.{{ .Values.clusterDomain }} (port {{ .Values.service.ports.http }})
+
+{{- if .Values.ingress.enabled }}
+
+Navidrome is exposed through the ingress at: {{ ternary "https" "http" .Values.ingress.tls }}://{{ .Values.ingress.hostname }}{{ .Values.ingress.path }}
+
+{{- else if contains "NodePort" .Values.service.type }}
+
+  export NODE_PORT=$(kubectl get --namespace {{ include "common.names.namespace" . }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "common.names.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ include "common.names.namespace" . }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "Navidrome URL: http://$NODE_IP:$NODE_PORT/"
+
+{{- else if contains "LoadBalancer" .Values.service.type }}
+
+NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+      Watch the status with: 'kubectl get svc --namespace {{ include "common.names.namespace" . }} -w {{ include "common.names.fullname" . }}'
+
+  export SERVICE_IP=$(kubectl get svc --namespace {{ include "common.names.namespace" . }} {{ include "common.names.fullname" . }} --template "{{ "{{ range (index .status.loadBalancer.ingress 0) }}{{ . }}{{ end }}" }}")
+  echo "Navidrome URL: http://$SERVICE_IP:{{ .Values.service.ports.http }}/"
+
+{{- else }}
+
+To access Navidrome from your computer, run:
+
+  kubectl port-forward --namespace {{ include "common.names.namespace" . }} svc/{{ include "common.names.fullname" . }} 4533:{{ .Values.service.ports.http }}
+
+and open http://127.0.0.1:4533
+
+{{- end }}
+
+{{- if .Values.adminPassword }}
+
+Sign in as `admin` with the password set in `adminPassword`.
+{{- else }}
+
+Open the web UI and create the first user: it becomes the administrator.
+{{- end }}
+
+{{- if and (not .Values.music.existingClaim) (not .Values.music.volume) }}
+
+WARNING: no music library is mounted (music.existingClaim and music.volume are empty), /music is an empty directory.
+{{- end }}
+
+{{- if not .Values.persistence.enabled }}
+
+WARNING: persistence is disabled. The database, users and caches are lost on pod restart.
+{{- end }}
+
+{{- if and .Values.extAuth.trustedSources (not .Values.networkPolicy.enabled) }}
+
+WARNING: reverse proxy authentication trusts the header `{{ .Values.extAuth.userHeader }}` from {{ .Values.extAuth.trustedSources }}. Make sure only the proxy can reach Navidrome.
+{{- end }}
+
+{{- end }}
+
+{{- include "common.warnings.rollingTag" .Values.image }}

@@ -1,0 +1,7 @@
+# Strictest network posture: only labelled clients may reach Navidrome, egress limited to DNS.
+# Proves the NetworkPolicy rules shipped by the chart are sufficient for the app to start and serve.
+resourcesPreset: small
+networkPolicy:
+  enabled: true
+  allowExternal: false
+  allowExternalEgress: false

@@ -1,0 +1,46 @@
+{{- if .Values.tests.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ printf "%s-test-health" (include "common.names.fullname" .) | trunc 63 | trimSuffix "-" }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "common.labels.standard" (dict "customLabels" .Values.commonLabels "context" $) | nindent 4 }}
+    app.kubernetes.io/component: test
+    # lets the pod through the Navidrome NetworkPolicy when networkPolicy.allowExternal=false
+    {{ template "common.names.fullname" . }}-client: "true"
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" (dict "value" .Values.commonAnnotations "context" $) | nindent 4 }}
+    {{- end }}
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  {{- include "navidrome.imagePullSecrets" . | nindent 2 }}
+  securityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: health
+      image: {{ template "navidrome.image" . }}
+      imagePullPolicy: {{ .Values.image.pullPolicy }}
+      securityContext: {{- include "navidrome.tests.securityContext" . | nindent 8 }}
+      command:
+        - sh
+        - -c
+        - |
+          url="http://{{ include "common.names.fullname" . }}.{{ include "common.names.namespace" . }}.svc.{{ .Values.clusterDomain }}:{{ .Values.service.ports.http }}{{ include "navidrome.probePath" . }}"
+          echo "GET $url"
+          for attempt in 1 2 3 4 5 6; do
+            if wget -q -T 10 -O /dev/null "$url"; then
+              echo "Navidrome answered"
+              exit 0
+            fi
+            echo "attempt $attempt failed, retrying"
+            sleep 5
+          done
+          echo "Navidrome did not answer through its Service" >&2
+          exit 1
+      resources: {{- include "common.resources.preset" (dict "type" "nano") | nindent 8 }}
+{{- end }}

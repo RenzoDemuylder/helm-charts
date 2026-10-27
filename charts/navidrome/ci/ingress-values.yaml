@@ -1,0 +1,9 @@
+# Ingress enabled (no controller needed: the API server only has to accept the object)
+resourcesPreset: small
+ingress:
+  enabled: true
+  hostname: navidrome.example.test
+  ingressClassName: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 8m
+baseUrl: https://navidrome.example.test

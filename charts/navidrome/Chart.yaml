@@ -1,0 +1,29 @@
+annotations:
+  category: Media
+  images: |
+    - name: navidrome
+      image: docker.io/deluan/navidrome:0.64.2
+  licenses: GPL-3.0
+apiVersion: v2
+appVersion: 0.64.2
+dependencies:
+  - name: common
+    repository: file://../common
+    version: 1.x.x
+description: Navidrome is a self-hosted music server and streamer compatible with the Subsonic API.
+home: https://github.com/RenzoDemuylder/helm-charts/tree/main/charts/navidrome
+icon: https://raw.githubusercontent.com/navidrome/navidrome/master/resources/logo-192x192.png
+keywords:
+  - navidrome
+  - music
+  - subsonic
+  - streaming
+kubeVersion: ">=1.25.0-0"
+maintainers:
+  - name: RenzoDemuylder
+    url: https://github.com/RenzoDemuylder
+name: navidrome
+sources:
+  - https://github.com/navidrome/navidrome
+  - https://github.com/RenzoDemuylder/helm-charts/tree/main/charts/navidrome
+version: 0.1.0
