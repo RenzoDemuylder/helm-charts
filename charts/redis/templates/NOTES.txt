@@ -1,0 +1,32 @@
+CHART NAME: {{ .Chart.Name }}
+CHART VERSION: {{ .Chart.Version }}
+APP VERSION: {{ .Chart.AppVersion }}
+
+Redis can be accessed through the following DNS name from within your cluster:
+
+    {{ include "common.names.fullname" . }}.{{ include "common.names.namespace" . }}.svc.{{ .Values.clusterDomain }} (port {{ .Values.service.ports.redis }})
+
+{{- if .Values.auth.enabled }}
+To get the password run:
+
+    export REDIS_PASSWORD=$(kubectl get secret --namespace {{ include "common.names.namespace" . }} {{ include "redis.secretName" . }} -o jsonpath="{.data.{{ .Values.auth.secretKeys.passwordKey }}}" | base64 -d)
+
+{{- else }}
+WARNING: authentication is disabled (auth.enabled=false). Anything that can reach the Service can read and write all data.
+{{- end }}
+
+To connect from your computer:
+
+    kubectl port-forward --namespace {{ include "common.names.namespace" . }} svc/{{ include "common.names.fullname" . }} 6379:{{ .Values.service.ports.redis }} &
+    REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 -p 6379 ping
+{{- if .Values.networkPolicy.enabled }}
+{{- if not .Values.networkPolicy.allowExternal }}
+
+The NetworkPolicy only admits pods labelled "{{ include "common.names.fullname" . }}-client: true". Label your client pods accordingly.
+{{- end }}
+{{- end }}
+{{- if not .Values.persistence.enabled }}
+
+WARNING: persistence is disabled. All data is lost on pod restart.
+{{- end }}
+{{- include "common.warnings.rollingTag" .Values.image }}
