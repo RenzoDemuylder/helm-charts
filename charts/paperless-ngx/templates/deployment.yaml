@@ -1,0 +1,310 @@
+{{- include "paperless-ngx.validateValues" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "common.names.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "common.labels.standard" (dict "customLabels" .Values.commonLabels "context" $) | nindent 4 }}
+    app.kubernetes.io/component: paperless-ngx
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" (dict "value" .Values.commonAnnotations "context" $) | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  {{- $podLabels := include "common.tplvalues.merge" (dict "values" (list .Values.podLabels .Values.commonLabels) "context" .) }}
+  selector:
+    matchLabels: {{- include "common.labels.matchLabels" (dict "customLabels" $podLabels "context" $) | nindent 6 }}
+      app.kubernetes.io/component: paperless-ngx
+  {{- if .Values.updateStrategy }}
+  strategy: {{- toYaml .Values.updateStrategy | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- if .Values.podAnnotations }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.podAnnotations "context" $) | nindent 8 }}
+        {{- end }}
+      labels: {{- include "common.labels.standard" (dict "customLabels" $podLabels "context" $) | nindent 8 }}
+        app.kubernetes.io/component: paperless-ngx
+        {{- if .Values.postgresql.enabled }}
+        # lets Paperless-ngx through the NetworkPolicy of the PostgreSQL subchart
+        {{ include "paperless-ngx.postgresql.fullname" . }}-client: "true"
+        {{- end }}
+        {{- if .Values.redis.enabled }}
+        # lets Paperless-ngx through the NetworkPolicy of the Redis subchart
+        {{ include "paperless-ngx.redis.fullname" . }}-client: "true"
+        {{- end }}
+    spec:
+      serviceAccountName: {{ template "paperless-ngx.serviceAccountName" . }}
+      {{- include "paperless-ngx.imagePullSecrets" . | nindent 6 }}
+      automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
+      {{- if .Values.hostAliases }}
+      hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.hostAliases "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.affinity }}
+      affinity: {{- include "common.tplvalues.render" (dict "value" .Values.affinity "context" $) | nindent 8 }}
+      {{- else }}
+      affinity:
+        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.podAffinityPreset "component" "paperless-ngx" "customLabels" $podLabels "context" $) | nindent 10 }}
+        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.podAntiAffinityPreset "component" "paperless-ngx" "customLabels" $podLabels "context" $) | nindent 10 }}
+        nodeAffinity: {{- include "common.affinities.nodes" (dict "type" .Values.nodeAffinityPreset.type "key" .Values.nodeAffinityPreset.key "values" .Values.nodeAffinityPreset.values) | nindent 10 }}
+      {{- end }}
+      {{- if .Values.nodeSelector }}
+      nodeSelector: {{- include "common.tplvalues.render" (dict "value" .Values.nodeSelector "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.tolerations }}
+      tolerations: {{- include "common.tplvalues.render" (dict "value" .Values.tolerations "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.topologySpreadConstraints }}
+      topologySpreadConstraints: {{- include "common.tplvalues.render" (dict "value" .Values.topologySpreadConstraints "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName | quote }}
+      {{- end }}
+      {{- if .Values.schedulerName }}
+      schedulerName: {{ .Values.schedulerName | quote }}
+      {{- end }}
+      {{- if .Values.podSecurityContext.enabled }}
+      securityContext: {{- include "common.security.context" (dict "secContext" .Values.podSecurityContext "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- end }}
+      initContainers:
+        # s6-overlay refuses a /run it does not own. An emptyDir itself is owned by root, but a directory created inside it by
+        # this (non-root) user is owned by it, so /run is mounted from the "run" subdirectory
+        - name: init-run-dir
+          image: {{ template "paperless-ngx.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.containerSecurityContext.enabled }}
+          securityContext: {{- include "common.security.context" (dict "secContext" .Values.containerSecurityContext "context" $) | nindent 12 }}
+          {{- end }}
+          command:
+            - sh
+            - -c
+            - mkdir -p /volume/run
+          volumeMounts:
+            - name: run
+              mountPath: /volume
+          resources: {{- include "common.resources.preset" (dict "type" "nano") | nindent 12 }}
+        {{- if .Values.waitForDatabase.enabled }}
+        - name: wait-for-db
+          image: {{ include "paperless-ngx.waitForDatabase.image" . }}
+          imagePullPolicy: {{ .Values.waitForDatabase.image.pullPolicy }}
+          {{- if .Values.containerSecurityContext.enabled }}
+          securityContext: {{- include "common.security.context" (dict "secContext" .Values.containerSecurityContext "context" $) | nindent 12 }}
+          {{- end }}
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE"; do
+                echo "waiting for database $PGHOST:$PGPORT"
+                sleep 2
+              done
+          env: {{- include "paperless-ngx.database.env" (dict "names" (list "PGHOST" "PGPORT" "PGUSER" "PGDATABASE") "context" $) | trim | nindent 12 }}
+          resources: {{- include "common.resources.preset" (dict "type" "nano") | nindent 12 }}
+        {{- end }}
+        {{- if .Values.initContainers }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.initContainers "context" $) | nindent 8 }}
+        {{- end }}
+      containers:
+        - name: paperless-ngx
+          image: {{ template "paperless-ngx.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.containerSecurityContext.enabled }}
+          securityContext: {{- include "common.security.context" (dict "secContext" .Values.containerSecurityContext "context" $) | nindent 12 }}
+          {{- end }}
+          {{- if .Values.diagnosticMode.enabled }}
+          command: {{- include "common.tplvalues.render" (dict "value" .Values.diagnosticMode.command "context" $) | nindent 12 }}
+          args: {{- include "common.tplvalues.render" (dict "value" .Values.diagnosticMode.args "context" $) | nindent 12 }}
+          {{- else }}
+          {{- if .Values.command }}
+          command: {{- include "common.tplvalues.render" (dict "value" .Values.command "context" $) | nindent 12 }}
+          {{- end }}
+          {{- if .Values.args }}
+          args: {{- include "common.tplvalues.render" (dict "value" .Values.args "context" $) | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          env:
+            - name: PAPERLESS_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "paperless-ngx.secretName" . }}
+                  key: secret-key
+            - name: PAPERLESS_PORT
+              value: {{ .Values.containerPorts.http | quote }}
+            - name: PAPERLESS_TIME_ZONE
+              value: {{ .Values.timezone | quote }}
+            {{- if include "paperless-ngx.url" . }}
+            - name: PAPERLESS_URL
+              value: {{ include "paperless-ngx.url" . | quote }}
+            {{- end }}
+            - name: PAPERLESS_OCR_LANGUAGE
+              value: {{ .Values.ocr.language | quote }}
+            {{- include "paperless-ngx.database.env" (dict "names" (list "PAPERLESS_DBHOST" "PAPERLESS_DBPORT" "PAPERLESS_DBUSER" "PAPERLESS_DBNAME") "context" $) | trim | nindent 12 }}
+            - name: PAPERLESS_DBPASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "paperless-ngx.database.secretName" . }}
+                  key: {{ include "paperless-ngx.database.passwordKey" . }}
+            {{- if include "paperless-ngx.redis.hasPassword" . }}
+            - name: PAPERLESS_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "paperless-ngx.redis.secretName" . }}
+                  key: {{ include "paperless-ngx.redis.passwordKey" . }}
+            {{- end }}
+            - name: PAPERLESS_REDIS
+              value: {{ include "paperless-ngx.redis.url" . | quote }}
+            {{- if .Values.admin.enabled }}
+            - name: PAPERLESS_ADMIN_USER
+              value: {{ .Values.admin.username | quote }}
+            - name: PAPERLESS_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "paperless-ngx.secretName" . }}
+                  key: admin-password
+            {{- if .Values.admin.email }}
+            - name: PAPERLESS_ADMIN_MAIL
+              value: {{ .Values.admin.email | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.tika.enabled }}
+            - name: PAPERLESS_TIKA_ENABLED
+              value: "true"
+            - name: PAPERLESS_TIKA_ENDPOINT
+              value: {{ .Values.tika.endpoint | quote }}
+            - name: PAPERLESS_TIKA_GOTENBERG_ENDPOINT
+              value: {{ .Values.tika.gotenbergEndpoint | quote }}
+            {{- end }}
+            {{- if .Values.smtp.host }}
+            - name: PAPERLESS_EMAIL_HOST
+              value: {{ .Values.smtp.host | quote }}
+            - name: PAPERLESS_EMAIL_PORT
+              value: {{ .Values.smtp.port | quote }}
+            - name: PAPERLESS_EMAIL_USE_TLS
+              value: {{ .Values.smtp.useTls | quote }}
+            - name: PAPERLESS_EMAIL_USE_SSL
+              value: {{ .Values.smtp.useSsl | quote }}
+            {{- if .Values.smtp.username }}
+            - name: PAPERLESS_EMAIL_HOST_USER
+              value: {{ .Values.smtp.username | quote }}
+            {{- end }}
+            {{- if .Values.smtp.fromEmail }}
+            - name: PAPERLESS_EMAIL_FROM
+              value: {{ .Values.smtp.fromEmail | quote }}
+            {{- end }}
+            {{- if or .Values.smtp.password .Values.existingSecret }}
+            - name: PAPERLESS_EMAIL_HOST_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "paperless-ngx.secretName" . }}
+                  key: smtp-password
+            {{- end }}
+            {{- end }}
+            {{- if .Values.extraEnvVars }}
+            {{- include "common.tplvalues.render" (dict "value" .Values.extraEnvVars "context" $) | nindent 12 }}
+            {{- end }}
+          {{- if or .Values.extraEnvVarsCM .Values.extraEnvVarsSecret }}
+          envFrom:
+            {{- if .Values.extraEnvVarsCM }}
+            - configMapRef:
+                name: {{ include "common.tplvalues.render" (dict "value" .Values.extraEnvVarsCM "context" $) }}
+            {{- end }}
+            {{- if .Values.extraEnvVarsSecret }}
+            - secretRef:
+                name: {{ include "common.tplvalues.render" (dict "value" .Values.extraEnvVarsSecret "context" $) }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.resources }}
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          {{- else if ne .Values.resourcesPreset "none" }}
+          resources: {{- include "common.resources.preset" (dict "type" .Values.resourcesPreset) | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPorts.http }}
+              protocol: TCP
+          {{- if not .Values.diagnosticMode.enabled }}
+          {{- if .Values.customLivenessProbe }}
+          livenessProbe: {{- include "common.tplvalues.render" (dict "value" .Values.customLivenessProbe "context" $) | nindent 12 }}
+          {{- else if .Values.livenessProbe.enabled }}
+          livenessProbe: {{- include "common.tplvalues.render" (dict "value" (omit .Values.livenessProbe "enabled") "context" $) | nindent 12 }}
+            httpGet:
+              path: /accounts/login/
+              port: http
+          {{- end }}
+          {{- if .Values.customReadinessProbe }}
+          readinessProbe: {{- include "common.tplvalues.render" (dict "value" .Values.customReadinessProbe "context" $) | nindent 12 }}
+          {{- else if .Values.readinessProbe.enabled }}
+          readinessProbe: {{- include "common.tplvalues.render" (dict "value" (omit .Values.readinessProbe "enabled") "context" $) | nindent 12 }}
+            httpGet:
+              path: /accounts/login/
+              port: http
+          {{- end }}
+          {{- if .Values.customStartupProbe }}
+          startupProbe: {{- include "common.tplvalues.render" (dict "value" .Values.customStartupProbe "context" $) | nindent 12 }}
+          {{- else if .Values.startupProbe.enabled }}
+          startupProbe: {{- include "common.tplvalues.render" (dict "value" (omit .Values.startupProbe "enabled") "context" $) | nindent 12 }}
+            httpGet:
+              path: /accounts/login/
+              port: http
+          {{- end }}
+          {{- end }}
+          {{- if .Values.lifecycleHooks }}
+          lifecycle: {{- include "common.tplvalues.render" (dict "value" .Values.lifecycleHooks "context" $) | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            # the image starts s6-overlay, which keeps its runtime state in /run
+            - name: run
+              mountPath: /run
+              subPath: run
+            - name: data
+              mountPath: /usr/src/paperless/data
+              subPath: data
+            - name: data
+              mountPath: /usr/src/paperless/media
+              subPath: media
+            - name: consume
+              mountPath: /usr/src/paperless/consume
+            - name: export
+              mountPath: /usr/src/paperless/export
+            {{- if .Values.extraVolumeMounts }}
+            {{- include "common.tplvalues.render" (dict "value" .Values.extraVolumeMounts "context" $) | nindent 12 }}
+            {{- end }}
+        {{- if .Values.sidecars }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.sidecars "context" $) | nindent 8 }}
+        {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+        - name: consume
+          {{- if .Values.consume.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ tpl .Values.consume.existingClaim $ }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: export
+          {{- if .Values.export.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ tpl .Values.export.existingClaim $ }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "paperless-ngx.pvcName" . }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- if .Values.extraVolumes }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.extraVolumes "context" $) | nindent 8 }}
+        {{- end }}

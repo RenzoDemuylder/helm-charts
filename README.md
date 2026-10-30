@@ -8,7 +8,9 @@ Charts are published as OCI artifacts to GHCR.
 | ----- | --- | ----------- |
 | [scrob](charts/scrob) | [ellite/scrob](https://github.com/ellite/scrob) | Self-hosted media tracker |
 | [navidrome](charts/navidrome) | [navidrome/navidrome](https://github.com/navidrome/navidrome) | Self-hosted music server |
+| [paperless-ngx](charts/paperless-ngx) | [paperless-ngx/paperless-ngx](https://github.com/paperless-ngx/paperless-ngx) | Document management system with OCR |
 | [postgresql](charts/postgresql) | [PostgreSQL](https://www.postgresql.org/) | Single-instance PostgreSQL, standalone or as a dependency of other charts |
+| [redis](charts/redis) | [Redis](https://redis.io/) | Single-instance Redis, standalone or as a dependency of other charts |
 | [common](charts/common) | - | Library chart with shared helpers (own helpers) |
 
 ## Usage

@@ -1,0 +1,22 @@
+# Strictest network posture: only labelled clients may reach Paperless-ngx, egress limited to DNS + the database.
+# Proves the NetworkPolicy rules shipped by the chart are sufficient for the app to start and serve.
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "2"
+    memory: 2Gi
+postgresql:
+  resourcesPreset: micro
+  tests:
+    networkPolicy:
+      enabled: true
+redis:
+  tests:
+    networkPolicy:
+      enabled: true
+networkPolicy:
+  enabled: true
+  allowExternal: false
+  allowExternalEgress: false

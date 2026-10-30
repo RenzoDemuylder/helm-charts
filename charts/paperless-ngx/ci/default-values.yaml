@@ -1,0 +1,17 @@
+# Bundled PostgreSQL, everything else default (installed by test/e2e.sh and rendered by `make render`)
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "2"
+    memory: 2Gi
+postgresql:
+  resourcesPreset: micro
+  tests:
+    networkPolicy:
+      enabled: true
+redis:
+  tests:
+    networkPolicy:
+      enabled: true

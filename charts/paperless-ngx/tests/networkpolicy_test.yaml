@@ -1,0 +1,103 @@
+suite: network policies
+templates:
+  - templates/networkpolicy.yaml
+  - charts/postgresql/templates/networkpolicy.yaml
+  - charts/redis/templates/networkpolicy.yaml
+release:
+  name: t
+tests:
+  - it: renders both policies by default
+    asserts:
+      - isKind:
+          of: NetworkPolicy
+      - hasDocuments:
+          count: 1
+
+  - it: only lets pods carrying the client label reach the bundled PostgreSQL
+    template: charts/postgresql/templates/networkpolicy.yaml
+    asserts:
+      - equal:
+          path: spec.ingress[0].from[0].podSelector.matchLabels
+          value:
+            t-postgresql-client: "true"
+      - equal:
+          path: spec.ingress[0].ports[0].port
+          value: 5432
+
+  - it: limits egress to DNS and the database in strict mode
+    template: templates/networkpolicy.yaml
+    set:
+      networkPolicy.allowExternal: false
+      networkPolicy.allowExternalEgress: false
+    asserts:
+      - lengthEqual:
+          path: spec.egress
+          count: 3
+      - equal:
+          path: spec.egress[1].to[0].podSelector.matchLabels
+          value:
+            app.kubernetes.io/name: postgresql
+            app.kubernetes.io/instance: t
+            app.kubernetes.io/component: postgresql
+      - equal:
+          path: spec.egress[2].to[0].podSelector.matchLabels
+          value:
+            app.kubernetes.io/name: redis
+            app.kubernetes.io/instance: t
+            app.kubernetes.io/component: redis
+      - equal:
+          path: spec.egress[2].ports[0].port
+          value: 6379
+      - equal:
+          path: spec.ingress[0].from[0].podSelector.matchLabels["t-paperless-ngx-client"]
+          value: "true"
+
+  - it: targets the CloudNativePG pods in strict mode
+    template: templates/networkpolicy.yaml
+    set:
+      postgresql.enabled: false
+      cnpg.enabled: true
+      networkPolicy.allowExternalEgress: false
+    asserts:
+      - equal:
+          path: spec.egress[1].to[0].podSelector.matchLabels["cnpg.io/cluster"]
+          value: t-paperless-ngx-db
+
+  - it: only lets pods carrying the client label reach the bundled Redis
+    template: charts/redis/templates/networkpolicy.yaml
+    asserts:
+      - equal:
+          path: spec.ingress[0].from[0].podSelector.matchLabels
+          value:
+            t-redis-client: "true"
+
+  - it: opens the external Redis port in strict mode without a destination selector
+    template: templates/networkpolicy.yaml
+    set:
+      redis.enabled: false
+      externalRedis.host: redis.example.org
+      externalRedis.port: 6380
+      networkPolicy.allowExternalEgress: false
+    asserts:
+      - equal:
+          path: spec.egress[2].ports[0].port
+          value: 6380
+      - notExists:
+          path: spec.egress[2].to
+
+  - it: allows all egress when asked to
+    template: templates/networkpolicy.yaml
+    asserts:
+      - equal:
+          path: spec.egress
+          value:
+            - {}
+
+  - it: renders nothing when disabled
+    set:
+      networkPolicy.enabled: false
+      postgresql.networkPolicy.enabled: false
+      redis.networkPolicy.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
