@@ -1,0 +1,48 @@
+suite: helm test hooks
+templates:
+  - templates/tests/health.yaml
+release:
+  name: t
+tests:
+  - it: renders the health test by default
+    template: templates/tests/health.yaml
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: marks the health test as a helm test hook that satisfies the restricted profile
+    template: templates/tests/health.yaml
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: test
+      - equal:
+          path: spec.containers[0].securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - equal:
+          path: spec.containers[0].securityContext.capabilities.drop
+          value: ["ALL"]
+      - equal:
+          path: spec.containers[0].securityContext.seccompProfile.type
+          value: RuntimeDefault
+      - equal:
+          path: spec.automountServiceAccountToken
+          value: false
+
+  - it: lets the health test through a strict Navidrome NetworkPolicy
+    template: templates/tests/health.yaml
+    asserts:
+      - equal:
+          path: metadata.labels["t-navidrome-client"]
+          value: "true"
+
+  - it: renders no test pod when disabled
+    template: templates/tests/health.yaml
+    set:
+      tests.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

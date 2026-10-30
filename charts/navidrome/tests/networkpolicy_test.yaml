@@ -1,0 +1,53 @@
+suite: network policies
+templates:
+  - templates/networkpolicy.yaml
+release:
+  name: t
+tests:
+  - it: admits the HTTP port by default
+    asserts:
+      - isKind:
+          of: NetworkPolicy
+      - equal:
+          path: spec.ingress[0].ports[0].port
+          value: 4533
+
+  - it: limits egress to DNS in strict mode and requires the client label
+    set:
+      networkPolicy.allowExternal: false
+      networkPolicy.allowExternalEgress: false
+    asserts:
+      - lengthEqual:
+          path: spec.egress
+          count: 1
+      - equal:
+          path: spec.egress[0].ports[0].port
+          value: 53
+      - equal:
+          path: spec.ingress[0].from[0].podSelector.matchLabels["t-navidrome-client"]
+          value: "true"
+
+  - it: appends extra egress rules in strict mode
+    set:
+      networkPolicy.allowExternalEgress: false
+      networkPolicy.extraEgress:
+        - ports:
+            - port: 443
+    asserts:
+      - lengthEqual:
+          path: spec.egress
+          count: 2
+
+  - it: allows all egress when asked to
+    asserts:
+      - equal:
+          path: spec.egress
+          value:
+            - {}
+
+  - it: renders nothing when disabled
+    set:
+      networkPolicy.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

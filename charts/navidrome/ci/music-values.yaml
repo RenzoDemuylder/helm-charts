@@ -1,0 +1,27 @@
+# Music library from an existing PVC, optional features enabled (secrets come from the chart Secret)
+resourcesPreset: small
+music:
+  existingClaim: music-library
+  subPath: albums
+backup:
+  schedule: "0 3 * * *"
+  count: 3
+prometheus:
+  enabled: true
+  password: metrics
+extraDeploy:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: music-library
+      labels:
+        app.kubernetes.io/name: navidrome
+        app.kubernetes.io/instance: music
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/component: music
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi

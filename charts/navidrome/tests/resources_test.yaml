@@ -1,0 +1,83 @@
+suite: optional resources
+templates:
+  - templates/secret.yaml
+  - templates/ingress.yaml
+  - templates/pvc.yaml
+release:
+  name: t
+tests:
+  - it: creates the credentials secret with a password encryption key
+    template: templates/secret.yaml
+    asserts:
+      - isKind:
+          of: Secret
+      - exists:
+          path: data["password-encryption-key"]
+
+  - it: does not create the credentials secret when an existing one is given
+    template: templates/secret.yaml
+    set:
+      existingSecret: mine
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: has no ingress by default
+    template: templates/ingress.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: routes the ingress host to the Service
+    template: templates/ingress.yaml
+    set:
+      ingress.enabled: true
+      ingress.hostname: navidrome.example.org
+      ingress.ingressClassName: nginx
+    asserts:
+      - isKind:
+          of: Ingress
+      - equal:
+          path: spec.ingressClassName
+          value: nginx
+      - equal:
+          path: spec.rules[0].host
+          value: navidrome.example.org
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: t-navidrome
+
+  - it: stores optional credentials in the secret
+    template: templates/secret.yaml
+    set:
+      adminPassword: pw
+      lastfm.apiKey: key
+      lastfm.secret: sec
+      prometheus.password: prom
+    asserts:
+      - exists:
+          path: data["admin-password"]
+      - exists:
+          path: data["lastfm-api-key"]
+      - exists:
+          path: data["lastfm-secret"]
+      - exists:
+          path: data["prometheus-password"]
+
+  - it: omits optional credentials by default
+    template: templates/secret.yaml
+    asserts:
+      - notExists:
+          path: data["admin-password"]
+      - notExists:
+          path: data["lastfm-api-key"]
+      - notExists:
+          path: data["prometheus-password"]
+
+  - it: honours an existing claim
+    template: templates/pvc.yaml
+    set:
+      persistence.existingClaim: mine
+    asserts:
+      - hasDocuments:
+          count: 0

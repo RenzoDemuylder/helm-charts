@@ -1,0 +1,278 @@
+suite: deployment
+templates:
+  - templates/deployment.yaml
+  # included by the deployment for its checksum annotation
+  - templates/secret.yaml
+release:
+  name: t
+tests:
+  - it: runs one Recreate replica of the pinned app version
+    template: templates/deployment.yaml
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: spec.replicas
+          value: 1
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: docker.io/deluan/navidrome:0.64.2
+
+  - it: keeps selector labels stable (they are immutable once released)
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels
+          value:
+            app.kubernetes.io/name: navidrome
+            app.kubernetes.io/instance: t
+            app.kubernetes.io/component: navidrome
+
+  - it: is locked down by default
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop
+          value: ["ALL"]
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.seccompProfile.type
+          value: RuntimeDefault
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+
+  - it: probes /ping over HTTP
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.path
+          value: /ping
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.port
+          value: http
+
+  - it: probes /ping below the path of baseUrl
+    template: templates/deployment.yaml
+    set:
+      baseUrl: https://example.org/music/
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.path
+          value: /music/ping
+
+  - it: sets resources from the preset
+    template: templates/deployment.yaml
+    asserts:
+      - exists:
+          path: spec.template.spec.containers[0].resources.limits
+      - exists:
+          path: spec.template.spec.containers[0].resources.requests
+
+  - it: lets explicit resources win over the preset
+    template: templates/deployment.yaml
+    set:
+      resources:
+        requests:
+          cpu: 10m
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources
+          value:
+            requests:
+              cpu: 10m
+
+  - it: generates the password encryption key in the secret
+    template: templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ND_PASSWORDENCRYPTIONKEY
+            valueFrom:
+              secretKeyRef:
+                name: t-navidrome
+                key: password-encryption-key
+
+  - it: reads credentials from an existing secret
+    template: templates/deployment.yaml
+    set:
+      existingSecret: mine
+      lastfm.enabled: true
+      prometheus.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ND_PASSWORDENCRYPTIONKEY
+            valueFrom:
+              secretKeyRef:
+                name: mine
+                key: password-encryption-key
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ND_LASTFM_APIKEY
+            valueFrom:
+              secretKeyRef:
+                name: mine
+                key: lastfm-api-key
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ND_PROMETHEUS_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mine
+                key: prometheus-password
+
+  - it: only sets optional settings when they are used
+    template: templates/deployment.yaml
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ND_BASEURL
+            value: ""
+      - notExists:
+          path: spec.template.spec.containers[0].env[?(@.name == "ND_EXTAUTH_USERHEADER")]
+      - notExists:
+          path: spec.template.spec.containers[0].env[?(@.name == "ND_BACKUP_PATH")]
+
+  - it: configures reverse proxy authentication
+    template: templates/deployment.yaml
+    set:
+      extAuth.trustedSources: 10.0.0.0/8
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ND_EXTAUTH_TRUSTEDSOURCES
+            value: 10.0.0.0/8
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ND_EXTAUTH_USERHEADER
+            value: Remote-User
+
+  - it: writes backups to the data volume
+    template: templates/deployment.yaml
+    set:
+      backup.schedule: "0 3 * * *"
+      backup.count: 3
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ND_BACKUP_PATH
+            value: /data/backup
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ND_BACKUP_COUNT
+            value: "3"
+
+  - it: mounts an empty music directory by default
+    template: templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: music
+            emptyDir: {}
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: music
+            mountPath: /music
+            readOnly: true
+
+  - it: mounts the music library from an existing claim
+    template: templates/deployment.yaml
+    set:
+      music.existingClaim: library
+      music.subPath: flac
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: music
+            persistentVolumeClaim:
+              claimName: library
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: music
+            mountPath: /music
+            readOnly: true
+            subPath: flac
+
+  - it: mounts the music library from a raw volume
+    template: templates/deployment.yaml
+    set:
+      music.volume:
+        nfs:
+          server: nas.example.org
+          path: /export/music
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: music
+            nfs:
+              server: nas.example.org
+              path: /export/music
+
+  - it: drops probes and overrides the command in diagnostic mode
+    template: templates/deployment.yaml
+    set:
+      diagnosticMode.enabled: true
+    asserts:
+      - notExists:
+          path: spec.template.spec.containers[0].livenessProbe
+      - notExists:
+          path: spec.template.spec.containers[0].readinessProbe
+      - exists:
+          path: spec.template.spec.containers[0].command
+
+  - it: uses an emptyDir instead of a PVC when persistence is disabled
+    template: templates/deployment.yaml
+    set:
+      persistence.enabled: false
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: data
+            emptyDir: {}
+
+  - it: refuses more than one replica
+    template: templates/deployment.yaml
+    set:
+      replicaCount: 2
+    asserts:
+      - failedTemplate:
+          errorPattern: "Do not run more than 1 replica"
+
+  - it: refuses an existing claim together with a raw music volume
+    template: templates/deployment.yaml
+    set:
+      music.existingClaim: library
+      music.volume:
+        nfs:
+          server: nas.example.org
+          path: /export/music
+    asserts:
+      - failedTemplate:
+          errorPattern: "not both"
