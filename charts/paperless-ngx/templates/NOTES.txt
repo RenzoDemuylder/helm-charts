@@ -1,0 +1,92 @@
+CHART NAME: {{ .Chart.Name }}
+CHART VERSION: {{ .Chart.Version }}
+APP VERSION: {{ .Chart.AppVersion }}
+
+** Please be patient while the chart is being deployed (database migrations and the first start can take a few minutes) **
+
+{{- if .Values.diagnosticMode.enabled }}
+
+The chart has been deployed in diagnostic mode. All probes have been disabled and the command has been overwritten with:
+
+  command: {{- include "common.tplvalues.render" (dict "value" .Values.diagnosticMode.command "context" $) | nindent 4 }}
+  args: {{- include "common.tplvalues.render" (dict "value" .Values.diagnosticMode.args "context" $) | nindent 4 }}
+
+Get the list of pods by executing:
+
+  kubectl get pods --namespace {{ include "common.names.namespace" . }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+Access the pod you want to debug by executing
+
+  kubectl exec --namespace {{ include "common.names.namespace" . }} -ti <NAME OF THE POD> -- sh
+
+In order to replicate the container startup scripts execute this command:
+
+  /init
+
+{{- else }}
+
+Paperless-ngx can be accessed through the following DNS name from within your cluster:
+
+    {{ include "common.names.fullname" . }}.{{ include "common.names.namespace" . }}.svc.{{ .Values.clusterDomain }} (port {{ .Values.service.ports.http }})
+
+{{- if .Values.ingress.enabled }}
+
+Paperless-ngx is exposed through the ingress at: {{ include "paperless-ngx.url" . }}
+
+{{- else if contains "NodePort" .Values.service.type }}
+
+  export NODE_PORT=$(kubectl get --namespace {{ include "common.names.namespace" . }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "common.names.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ include "common.names.namespace" . }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "Paperless-ngx URL: http://$NODE_IP:$NODE_PORT/"
+
+{{- else if contains "LoadBalancer" .Values.service.type }}
+
+NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+      Watch the status with: 'kubectl get svc --namespace {{ include "common.names.namespace" . }} -w {{ include "common.names.fullname" . }}'
+
+  export SERVICE_IP=$(kubectl get svc --namespace {{ include "common.names.namespace" . }} {{ include "common.names.fullname" . }} --template "{{ "{{ range (index .status.loadBalancer.ingress 0) }}{{ . }}{{ end }}" }}")
+  echo "Paperless-ngx URL: http://$SERVICE_IP:{{ .Values.service.ports.http }}/"
+
+{{- else }}
+
+To access Paperless-ngx from your computer, run:
+
+  kubectl port-forward --namespace {{ include "common.names.namespace" . }} svc/{{ include "common.names.fullname" . }} 8000:{{ .Values.service.ports.http }}
+
+and open http://127.0.0.1:8000
+
+{{- end }}
+
+{{- if .Values.admin.enabled }}
+
+Log in as "{{ .Values.admin.username }}". The password is stored in the Secret {{ include "paperless-ngx.secretName" . }}:
+
+  kubectl get secret --namespace {{ include "common.names.namespace" . }} {{ include "paperless-ngx.secretName" . }} -o jsonpath="{.data.admin-password}" | base64 -d; echo
+
+The administrator is only created on first start, when no superuser exists yet. Changing the password in the web UI is not overwritten.
+{{- else }}
+
+No administrator is created (admin.enabled=false). Create one with:
+
+  kubectl exec --namespace {{ include "common.names.namespace" . }} -ti deploy/{{ include "common.names.fullname" . }} -- python3 manage.py createsuperuser
+{{- end }}
+
+{{- if not .Values.persistence.enabled }}
+
+WARNING: persistence is disabled. Documents, the search index and the database files (if any) are lost on pod restart.
+{{- end }}
+
+{{- if not (include "paperless-ngx.url" .) }}
+
+NOTE: url is not set, so Paperless-ngx accepts any Host header. Set `url` to the public URL (PAPERLESS_URL) to restrict allowed hosts and enable CSRF protection for that origin.
+{{- end }}
+
+{{- if and (not .Values.redis.enabled) .Values.externalRedis.password (not .Values.externalRedis.existingSecret) }}
+
+NOTE: the external Redis password is embedded in the connection URL, it must only contain URL-safe characters.
+{{- end }}
+
+{{- end }}
+
+{{- include "common.warnings.rollingTag" .Values.image }}
+{{- include "common.warnings.rollingTag" .Values.waitForDatabase.image }}

@@ -27,10 +27,10 @@ jobs:
         run: |
           owner=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
           mkdir -p .packages
-          # common and postgresql first: other charts package them as file:// dependencies
-          charts=(charts/common/ charts/postgresql/)
+          # common, postgresql and redis first: other charts package them as file:// dependencies
+          charts=(charts/common/ charts/postgresql/ charts/redis/)
           for chart in charts/*/; do
-            case "$chart" in charts/common/|charts/postgresql/) ;; *) charts+=("$chart") ;; esac
+            case "$chart" in charts/common/|charts/postgresql/|charts/redis/) ;; *) charts+=("$chart") ;; esac
           done
           for chart in "${charts[@]}"; do
             name=$(basename "$chart")

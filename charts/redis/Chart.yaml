@@ -1,0 +1,29 @@
+annotations:
+  category: Database
+  images: |
+    - name: redis
+      image: docker.io/library/redis:8.10.3-alpine
+  licenses: AGPL-3.0-only
+apiVersion: v2
+appVersion: 8.10.3
+dependencies:
+  - name: common
+    repository: file://../common
+    version: 1.x.x
+description: Single-instance Redis (official image) with secure defaults, meant to be used standalone or as a dependency of application charts.
+home: https://github.com/RenzoDemuylder/helm-charts/tree/main/charts/redis
+icon: https://redis.io/wp-content/uploads/2024/04/Logotype.svg
+keywords:
+  - redis
+  - cache
+  - broker
+kubeVersion: ">=1.25.0-0"
+maintainers:
+  - name: RenzoDemuylder
+    url: https://github.com/RenzoDemuylder
+name: redis
+sources:
+  - https://redis.io/
+  - https://github.com/docker-library/redis
+  - https://github.com/RenzoDemuylder/helm-charts/tree/main/charts/redis
+version: 0.1.0

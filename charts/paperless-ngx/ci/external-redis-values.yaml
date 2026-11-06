@@ -1,0 +1,97 @@
+# externalRedis pointing at a throwaway Redis (with a password) deployed next to the release through extraDeploy
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "2"
+    memory: 2Gi
+postgresql:
+  resourcesPreset: micro
+redis:
+  enabled: false
+externalRedis:
+  host: ci-extredis
+  port: 6379
+  password: ci-redis-password
+# every case installs into its own namespace, so fixed names are safe
+extraDeploy:
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: ci-extredis
+      labels:
+        app.kubernetes.io/name: extredis
+        app.kubernetes.io/instance: ci
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/component: extredis
+    spec:
+      selector:
+        app.kubernetes.io/name: extredis
+        app.kubernetes.io/instance: ci
+      ports:
+        - name: redis
+          port: 6379
+          targetPort: redis
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: ci-extredis
+      labels:
+        app.kubernetes.io/name: extredis
+        app.kubernetes.io/instance: ci
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/component: extredis
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app.kubernetes.io/name: extredis
+          app.kubernetes.io/instance: ci
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: extredis
+            app.kubernetes.io/instance: ci
+            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/component: extredis
+        spec:
+          automountServiceAccountToken: false
+          securityContext:
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: redis
+              image: docker.io/library/redis:8.10.3-alpine
+              command: ["redis-server", "--requirepass", "ci-redis-password", "--save", "", "--appendonly", "no"]
+              ports:
+                - name: redis
+                  containerPort: 6379
+              readinessProbe:
+                exec:
+                  command: ["sh", "-c", "REDISCLI_AUTH=ci-redis-password redis-cli ping | grep -q PONG"]
+                periodSeconds: 5
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 250m
+                  memory: 128Mi
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 999
+                runAsGroup: 1000
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+                seccompProfile:
+                  type: RuntimeDefault
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+          volumes:
+            - name: data
+              emptyDir: {}

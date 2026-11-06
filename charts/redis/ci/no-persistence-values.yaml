@@ -1,0 +1,8 @@
+# Ephemeral data volume and a given password
+resourcesPreset: nano
+auth:
+  password: s3cret-test-password
+persistence:
+  enabled: false
+networkPolicy:
+  allowExternal: true

@@ -1,0 +1,29 @@
+{{- if .Values.cnpg.enabled }}
+{{- $storage := dict "size" .Values.cnpg.storage.size -}}
+{{- $class := include "common.storage.class" (dict "persistence" .Values.cnpg.storage "global" .Values.global) | fromYaml -}}
+{{- if hasKey $class "storageClassName" -}}
+{{- $_ := set $storage "storageClass" $class.storageClassName -}}
+{{- end -}}
+{{- $spec := dict "instances" .Values.cnpg.instances "storage" $storage "bootstrap" (dict "initdb" (dict "database" .Values.cnpg.database "owner" .Values.cnpg.owner)) -}}
+{{- if .Values.cnpg.imageName -}}
+{{- $_ := set $spec "imageName" .Values.cnpg.imageName -}}
+{{- end -}}
+{{- if .Values.cnpg.resources -}}
+{{- $_ := set $spec "resources" .Values.cnpg.resources -}}
+{{- else if ne .Values.cnpg.resourcesPreset "none" -}}
+{{- $_ := set $spec "resources" (include "common.resources.preset" (dict "type" .Values.cnpg.resourcesPreset) | fromYaml) -}}
+{{- end -}}
+{{- $spec = merge (include "common.tplvalues.render" (dict "value" .Values.cnpg.extraSpec "context" $) | fromYaml) $spec -}}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "paperless-ngx.cnpg.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "common.labels.standard" (dict "customLabels" .Values.commonLabels "context" $) | nindent 4 }}
+    app.kubernetes.io/component: database
+  {{- if or .Values.cnpg.annotations .Values.commonAnnotations }}
+  {{- $annotations := include "common.tplvalues.merge" (dict "values" (list .Values.cnpg.annotations .Values.commonAnnotations) "context" .) }}
+  annotations: {{- include "common.tplvalues.render" (dict "value" $annotations "context" $) | nindent 4 }}
+  {{- end }}
+spec: {{- toYaml $spec | nindent 2 }}
+{{- end }}

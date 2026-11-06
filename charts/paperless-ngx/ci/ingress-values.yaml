@@ -1,0 +1,16 @@
+# Ingress enabled (no controller needed: the API server only has to accept the object)
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "2"
+    memory: 2Gi
+postgresql:
+  resourcesPreset: micro
+ingress:
+  enabled: true
+  hostname: paperless-ngx.example.test
+  ingressClassName: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 8m

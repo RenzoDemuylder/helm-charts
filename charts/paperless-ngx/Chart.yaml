@@ -1,0 +1,41 @@
+annotations:
+  category: DocumentManagement
+  images: |
+    - name: paperless-ngx
+      image: ghcr.io/paperless-ngx/paperless-ngx:3.4.0
+    - name: postgresql
+      image: docker.io/library/postgres:17-alpine
+    - name: redis
+      image: docker.io/library/redis:8.10.3-alpine
+  licenses: GPL-3.0
+apiVersion: v2
+appVersion: 3.4.0
+dependencies:
+  - name: common
+    repository: file://../common
+    version: 1.x.x
+  - name: postgresql
+    repository: file://../postgresql
+    version: 0.x.x
+    condition: postgresql.enabled
+  - name: redis
+    repository: file://../redis
+    version: 0.x.x
+    condition: redis.enabled
+description: Paperless-ngx is a document management system that scans, indexes and archives your paper documents.
+home: https://github.com/RenzoDemuylder/helm-charts/tree/main/charts/paperless-ngx
+icon: https://raw.githubusercontent.com/paperless-ngx/paperless-ngx/dev/resources/logo/web/svg/square.svg
+keywords:
+  - paperless-ngx
+  - documents
+  - ocr
+  - archive
+kubeVersion: ">=1.25.0-0"
+maintainers:
+  - name: RenzoDemuylder
+    url: https://github.com/RenzoDemuylder
+name: paperless-ngx
+sources:
+  - https://github.com/paperless-ngx/paperless-ngx
+  - https://github.com/RenzoDemuylder/helm-charts/tree/main/charts/paperless-ngx
+version: 0.1.0

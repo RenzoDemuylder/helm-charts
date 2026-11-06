@@ -1,0 +1,54 @@
+{{- if .Values.tests.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ printf "%s-test-connection" (include "common.names.fullname" .) | trunc 63 | trimSuffix "-" }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "common.labels.standard" (dict "customLabels" .Values.commonLabels "context" $) | nindent 4 }}
+    app.kubernetes.io/component: test
+    # lets the pod through the Redis NetworkPolicy when networkPolicy.allowExternal=false
+    {{ include "common.names.fullname" . }}-client: "true"
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" (dict "value" .Values.commonAnnotations "context" $) | nindent 4 }}
+    {{- end }}
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  {{- include "redis.imagePullSecrets" . | nindent 2 }}
+  securityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: connection
+      image: {{ include "redis.image" . }}
+      imagePullPolicy: {{ .Values.image.pullPolicy }}
+      securityContext: {{- include "redis.tests.securityContext" . | nindent 8 }}
+      {{- if .Values.auth.enabled }}
+      env:
+        - name: REDISCLI_AUTH
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "redis.secretName" . }}
+              key: {{ .Values.auth.secretKeys.passwordKey }}
+      {{- end }}
+      command:
+        - sh
+        - -c
+        - |
+          host="{{ include "common.names.fullname" . }}.{{ include "common.names.namespace" . }}.svc.{{ .Values.clusterDomain }}"
+          port="{{ .Values.service.ports.redis }}"
+          for attempt in 1 2 3 4 5 6; do
+            if redis-cli -h "$host" -p "$port" ping | grep -q PONG; then
+              echo "Redis answered through its Service"
+              exit 0
+            fi
+            echo "attempt $attempt failed, retrying"
+            sleep 5
+          done
+          echo "Redis did not answer through its Service" >&2
+          exit 1
+      resources: {{- include "common.resources.preset" (dict "type" "nano") | nindent 8 }}
+{{- end }}

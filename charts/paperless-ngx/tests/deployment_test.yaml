@@ -1,0 +1,483 @@
+suite: deployment
+templates:
+  - templates/deployment.yaml
+  # included by the deployment for its checksum annotation
+  - templates/secret.yaml
+release:
+  name: t
+tests:
+  - it: runs one Recreate replica of the pinned app version
+    template: templates/deployment.yaml
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: spec.replicas
+          value: 1
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/paperless-ngx/paperless-ngx:3.4.0
+
+  - it: keeps selector labels stable (they are immutable once released)
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels
+          value:
+            app.kubernetes.io/name: paperless-ngx
+            app.kubernetes.io/instance: t
+            app.kubernetes.io/component: paperless-ngx
+
+  - it: is locked down by default
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop
+          value: ["ALL"]
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.seccompProfile.type
+          value: RuntimeDefault
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+
+  - it: sets resources from the preset
+    template: templates/deployment.yaml
+    asserts:
+      - exists:
+          path: spec.template.spec.containers[0].resources.limits
+      - exists:
+          path: spec.template.spec.containers[0].resources.requests
+
+  - it: lets explicit resources win over the preset
+    template: templates/deployment.yaml
+    set:
+      resources:
+        requests:
+          cpu: 10m
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources
+          value:
+            requests:
+              cpu: 10m
+
+  - it: uses the bundled PostgreSQL by default
+    template: templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_DBHOST
+            value: t-postgresql
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_DBPASS
+            valueFrom:
+              secretKeyRef:
+                name: t-postgresql
+                key: password
+      - equal:
+          path: spec.template.metadata.labels["t-postgresql-client"]
+          value: "true"
+      - equal:
+          path: spec.template.spec.initContainers[1].image
+          value: docker.io/library/postgres:17-alpine
+
+  - it: does not label the pods as PostgreSQL clients without the subchart
+    template: templates/deployment.yaml
+    set:
+      postgresql.enabled: false
+      cnpg.enabled: true
+    asserts:
+      - notExists:
+          path: spec.template.metadata.labels["t-postgresql-client"]
+
+  - it: uses the CloudNativePG read-write service and app secret
+    template: templates/deployment.yaml
+    set:
+      postgresql.enabled: false
+      cnpg.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_DBHOST
+            value: t-paperless-ngx-db-rw
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_DBPASS
+            valueFrom:
+              secretKeyRef:
+                name: t-paperless-ngx-db-app
+                key: password
+
+  - it: uses an external database
+    template: templates/deployment.yaml
+    set:
+      postgresql.enabled: false
+      externalDatabase.host: db.example.org
+      externalDatabase.port: 6432
+      externalDatabase.password: s3cret
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_DBHOST
+            value: db.example.org
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_DBPORT
+            value: "6432"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_DBPASS
+            valueFrom:
+              secretKeyRef:
+                name: t-paperless-ngx
+                key: database-password
+
+  - it: reads external database credentials from an existing secret
+    template: templates/deployment.yaml
+    set:
+      postgresql.enabled: false
+      externalDatabase.existingSecret: my-db
+      externalDatabase.existingSecretKeys:
+        host: host
+        password: pw
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_DBHOST
+            valueFrom:
+              secretKeyRef:
+                name: my-db
+                key: host
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_DBPASS
+            valueFrom:
+              secretKeyRef:
+                name: my-db
+                key: pw
+
+  - it: leaves PAPERLESS_URL unset by default so any Host header is accepted
+    template: templates/deployment.yaml
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_URL
+            value: ""
+      - isNull:
+          path: spec.template.spec.containers[0].env[?(@.name == "PAPERLESS_URL")]
+
+  - it: points PAPERLESS_URL at the ingress host when enabled
+    template: templates/deployment.yaml
+    set:
+      ingress.enabled: true
+      ingress.hostname: paperless-ngx.example.org
+      ingress.tls: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_URL
+            value: https://paperless-ngx.example.org
+
+  - it: drops probes and overrides the command in diagnostic mode
+    template: templates/deployment.yaml
+    set:
+      diagnosticMode.enabled: true
+    asserts:
+      - notExists:
+          path: spec.template.spec.containers[0].livenessProbe
+      - notExists:
+          path: spec.template.spec.containers[0].readinessProbe
+      - exists:
+          path: spec.template.spec.containers[0].command
+
+  - it: uses an emptyDir instead of a PVC when persistence is disabled
+    template: templates/deployment.yaml
+    set:
+      persistence.enabled: false
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: data
+            emptyDir: {}
+
+  - it: refuses more than one replica
+    template: templates/deployment.yaml
+    set:
+      replicaCount: 2
+    asserts:
+      - failedTemplate:
+          errorPattern: "Do not run more than 1 replica"
+
+  - it: refuses two databases at once
+    template: templates/deployment.yaml
+    set:
+      cnpg.enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "Both are enabled"
+
+  - it: refuses to start without Redis
+    template: templates/deployment.yaml
+    set:
+      redis.enabled: false
+    asserts:
+      - failedTemplate:
+          errorPattern: "externalRedis.host"
+
+  - it: refuses to start without any database
+    template: templates/deployment.yaml
+    set:
+      postgresql.enabled: false
+    asserts:
+      - failedTemplate:
+          errorPattern: "externalDatabase.host"
+
+  - it: connects to the bundled Redis with a password taken from its Secret
+    template: templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_REDIS_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: t-redis
+                key: redis-password
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_REDIS
+            value: redis://:$(PAPERLESS_REDIS_PASSWORD)@t-redis:6379/0
+      - equal:
+          path: spec.template.metadata.labels["t-redis-client"]
+          value: "true"
+
+  - it: connects to the bundled Redis without a password when its auth is disabled
+    template: templates/deployment.yaml
+    set:
+      redis.auth.enabled: false
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_REDIS
+            value: redis://t-redis:6379/0
+      - isNull:
+          path: spec.template.spec.containers[0].env[?(@.name == "PAPERLESS_REDIS_PASSWORD")]
+
+  - it: uses an external Redis with a password from the chart secret
+    template: templates/deployment.yaml
+    set:
+      redis.enabled: false
+      externalRedis.host: redis.example.org
+      externalRedis.port: 6380
+      externalRedis.database: 2
+      externalRedis.tls: true
+      externalRedis.password: s3cret
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_REDIS
+            value: rediss://:$(PAPERLESS_REDIS_PASSWORD)@redis.example.org:6380/2
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_REDIS_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: t-paperless-ngx
+                key: redis-password
+      - notExists:
+          path: spec.template.metadata.labels["t-redis-client"]
+
+  - it: reads the external Redis password from an existing secret
+    template: templates/deployment.yaml
+    set:
+      redis.enabled: false
+      externalRedis.host: redis.example.org
+      externalRedis.existingSecret: my-redis
+      externalRedis.existingSecretPasswordKey: pw
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_REDIS_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: my-redis
+                key: pw
+
+  - it: uses an external Redis without a password
+    template: templates/deployment.yaml
+    set:
+      redis.enabled: false
+      externalRedis.host: redis.example.org
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_REDIS
+            value: redis://redis.example.org:6379/0
+      - isNull:
+          path: spec.template.spec.containers[0].env[?(@.name == "PAPERLESS_REDIS_PASSWORD")]
+
+  - it: creates the administrator from a generated secret by default
+    template: templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_ADMIN_USER
+            value: admin
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: t-paperless-ngx
+                key: admin-password
+
+  - it: skips the administrator when disabled
+    template: templates/deployment.yaml
+    set:
+      admin.enabled: false
+    asserts:
+      - isNull:
+          path: spec.template.spec.containers[0].env[?(@.name == "PAPERLESS_ADMIN_USER")]
+
+  - it: configures Tika and Gotenberg only when enabled
+    template: templates/deployment.yaml
+    set:
+      tika.enabled: true
+      tika.endpoint: http://tika:9998
+      tika.gotenbergEndpoint: http://gotenberg:3000
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_TIKA_ENABLED
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_TIKA_GOTENBERG_ENDPOINT
+            value: http://gotenberg:3000
+
+  - it: configures outgoing email with the password from the secret
+    template: templates/deployment.yaml
+    set:
+      smtp.host: smtp.example.org
+      smtp.password: hunter2
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_EMAIL_HOST
+            value: smtp.example.org
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PAPERLESS_EMAIL_HOST_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: t-paperless-ngx
+                key: smtp-password
+
+  - it: gives the read-only root filesystem writable runtime directories and the four paperless volumes
+    template: templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: run
+            mountPath: /run
+            subPath: run
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /usr/src/paperless/media
+            subPath: media
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: consume
+            mountPath: /usr/src/paperless/consume
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: consume
+            emptyDir: {}
+
+  - it: mounts existing claims for the consume and export directories
+    template: templates/deployment.yaml
+    set:
+      consume.existingClaim: scans
+      export.existingClaim: backups
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: consume
+            persistentVolumeClaim:
+              claimName: scans
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: export
+            persistentVolumeClaim:
+              claimName: backups
+
+  - it: probes the login page over HTTP
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.path
+          value: /accounts/login/
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.port
+          value: http
+
+  - it: creates the /run subdirectory as the app user before s6-overlay starts
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: init-run-dir
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/paperless-ngx/paperless-ngx:3.4.0
+      - equal:
+          path: spec.template.spec.initContainers[0].securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.initContainers[0].command[2]
+          value: mkdir -p /volume/run
