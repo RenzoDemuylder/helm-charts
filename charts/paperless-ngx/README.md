@@ -391,6 +391,12 @@ Paperless-ngx keeps its state on local volumes and runs its own workers and sche
 | `waitForDatabase.image.digest`                 | wait-for-database image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag                                                                    | `""`               |
 | `waitForDatabase.image.pullPolicy`             | wait-for-database image pull policy                                                                                                                                                  | `IfNotPresent`     |
 | `waitForDatabase.image.pullSecrets`            | wait-for-database image pull secrets                                                                                                                                                 | `[]`               |
+| `waitForRedis.enabled`                         | Add an init container that waits for Redis                                                                                                                                           | `true`             |
+| `waitForRedis.image.registry`                  | wait-for-redis image registry                                                                                                                                                        | `docker.io`        |
+| `waitForRedis.image.repository`                | wait-for-redis image repository                                                                                                                                                      | `library/redis`    |
+| `waitForRedis.image.digest`                    | wait-for-redis image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag                                                                       | `""`               |
+| `waitForRedis.image.pullPolicy`                | wait-for-redis image pull policy                                                                                                                                                     | `IfNotPresent`     |
+| `waitForRedis.image.pullSecrets`               | wait-for-redis image pull secrets                                                                                                                                                    | `[]`               |
 
 ## License
 

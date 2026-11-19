@@ -38,4 +38,4 @@ name: paperless-ngx
 sources:
   - https://github.com/paperless-ngx/paperless-ngx
   - https://github.com/RenzoDemuylder/helm-charts/tree/main/charts/paperless-ngx
-version: 0.1.0
+version: 0.2.0

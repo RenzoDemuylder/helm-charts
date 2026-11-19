@@ -481,3 +481,50 @@ tests:
       - equal:
           path: spec.template.spec.initContainers[0].command[2]
           value: mkdir -p /volume/run
+
+  - it: waits for the bundled Redis with its password
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[2].name
+          value: wait-for-redis
+      - equal:
+          path: spec.template.spec.initContainers[2].image
+          value: docker.io/library/redis:8.10.3-alpine
+      - contains:
+          path: spec.template.spec.initContainers[2].env
+          content:
+            name: REDISCLI_AUTH
+            valueFrom:
+              secretKeyRef:
+                name: t-redis
+                key: redis-password
+
+  - it: omits the wait-for-redis init container when disabled
+    template: templates/deployment.yaml
+    set:
+      waitForRedis.enabled: false
+    asserts:
+      - notContains:
+          path: spec.template.spec.initContainers
+          content:
+            name: wait-for-redis
+          any: true
+
+  - it: waits for an external Redis over TLS without a password
+    template: templates/deployment.yaml
+    set:
+      redis.enabled: false
+      externalRedis.host: redis.example.com
+      externalRedis.tls: true
+    asserts:
+      - contains:
+          path: spec.template.spec.initContainers[2].env
+          content:
+            name: REDIS_TLS_ARGS
+            value: "--tls --insecure"
+      - notContains:
+          path: spec.template.spec.initContainers[2].env
+          content:
+            name: REDISCLI_AUTH
+          any: true
