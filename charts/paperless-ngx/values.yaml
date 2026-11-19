@@ -822,3 +822,24 @@ waitForDatabase:
     digest: ""
     pullPolicy: IfNotPresent
     pullSecrets: []
+## Wait for Redis to accept connections before starting Paperless-ngx
+##
+waitForRedis:
+  ## @param waitForRedis.enabled Add an init container that waits for Redis
+  ##
+  enabled: true
+  ## Image of the init container (needs `redis-cli`)
+  ## @param waitForRedis.image.registry wait-for-redis image registry
+  ## @param waitForRedis.image.repository wait-for-redis image repository
+  ## @skip waitForRedis.image.tag wait-for-redis image tag (immutable tags are recommended)
+  ## @param waitForRedis.image.digest wait-for-redis image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
+  ## @param waitForRedis.image.pullPolicy wait-for-redis image pull policy
+  ## @param waitForRedis.image.pullSecrets wait-for-redis image pull secrets
+  ##
+  image:
+    registry: docker.io
+    repository: library/redis
+    tag: 8.10.3-alpine
+    digest: ""
+    pullPolicy: IfNotPresent
+    pullSecrets: []

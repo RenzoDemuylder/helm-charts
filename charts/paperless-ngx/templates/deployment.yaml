@@ -106,6 +106,41 @@ spec:
           env: {{- include "paperless-ngx.database.env" (dict "names" (list "PGHOST" "PGPORT" "PGUSER" "PGDATABASE") "context" $) | trim | nindent 12 }}
           resources: {{- include "common.resources.preset" (dict "type" "nano") | nindent 12 }}
         {{- end }}
+        {{- if .Values.waitForRedis.enabled }}
+        - name: wait-for-redis
+          image: {{ include "paperless-ngx.waitForRedis.image" . }}
+          imagePullPolicy: {{ .Values.waitForRedis.image.pullPolicy }}
+          {{- if .Values.containerSecurityContext.enabled }}
+          securityContext: {{- include "common.security.context" (dict "secContext" .Values.containerSecurityContext "context" $) | nindent 12 }}
+          {{- end }}
+          command:
+            - sh
+            - -c
+            - |
+              until [ "$(redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" $REDIS_TLS_ARGS ping 2>/dev/null)" = "PONG" ]; do
+                echo "waiting for redis $REDIS_HOST:$REDIS_PORT"
+                sleep 2
+              done
+          env:
+            - name: REDIS_HOST
+              value: {{ include "paperless-ngx.redis.host" . | quote }}
+            - name: REDIS_PORT
+              value: {{ include "paperless-ngx.redis.port" . | quote }}
+            {{- if and (not .Values.redis.enabled) .Values.externalRedis.tls }}
+            # readiness check only: the server certificate is not verified
+            - name: REDIS_TLS_ARGS
+              value: "--tls --insecure"
+            {{- end }}
+            {{- if include "paperless-ngx.redis.hasPassword" . }}
+            # redis-cli reads the password from REDISCLI_AUTH, so it never appears on the command line
+            - name: REDISCLI_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "paperless-ngx.redis.secretName" . }}
+                  key: {{ include "paperless-ngx.redis.passwordKey" . }}
+            {{- end }}
+          resources: {{- include "common.resources.preset" (dict "type" "nano") | nindent 12 }}
+        {{- end }}
         {{- if .Values.initContainers }}
         {{- include "common.tplvalues.render" (dict "value" .Values.initContainers "context" $) | nindent 8 }}
         {{- end }}

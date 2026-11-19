@@ -15,10 +15,17 @@ Return the proper image name of the wait-for-database init container
 {{- end -}}
 
 {{/*
+Return the proper image name of the wait-for-redis init container
+*/}}
+{{- define "paperless-ngx.waitForRedis.image" -}}
+{{ include "common.images.image" (dict "imageRoot" .Values.waitForRedis.image "global" .Values.global) }}
+{{- end -}}
+
+{{/*
 Return the proper Docker Image Registry Secret Names
 */}}
 {{- define "paperless-ngx.imagePullSecrets" -}}
-{{- include "common.images.pullSecrets" (dict "images" (list .Values.image .Values.waitForDatabase.image) "global" .Values.global) -}}
+{{- include "common.images.pullSecrets" (dict "images" (list .Values.image .Values.waitForDatabase.image .Values.waitForRedis.image) "global" .Values.global) -}}
 {{- end -}}
 
 {{/*

@@ -52,6 +52,8 @@ Sub-components (database) go in `templates/<component>/`. Copy from `charts/scro
     (`allowExternal: false`) admits them; strict egress selects `app.kubernetes.io/{name: postgresql,instance: <release>,component: postgresql}`;
   - the `wait-for-db` init container has its own `waitForDatabase.image.*` (needs `pg_isready`), so it also works with
     CloudNativePG or an external database when the subchart is disabled.
+- **Redis**: charts using `charts/redis` / `externalRedis.*` add a `waitForRedis` init container the same way (`waitForRedis.image.*`,
+  `redis-cli ping` must answer `PONG`, password passed through `REDISCLI_AUTH` from the Secret, never on the command line).
 - **Helm test hooks** (`templates/tests/*.yaml`): `Pod` with `helm.sh/hook: test` and
   `hook-delete-policy: before-hook-creation,hook-succeeded`, label `app.kubernetes.io/component: test` (so no selector
   matches it), `automountServiceAccountToken: false`, `nano` resources preset, the `<fullname>-client: "true"` label on
